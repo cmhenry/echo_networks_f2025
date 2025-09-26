@@ -605,7 +605,7 @@ cat("\nPREPARING DATA FOR AMEN:\n")
 cat("========================\n")
 
 # Create adjacency matrix for netify
-Y <- get_adjacency(echo_net)
+Y <- adj_matrix
 
 # Prepare covariates
 # Node-level covariates
