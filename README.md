@@ -3,7 +3,7 @@
 
 ### Overview
 
-This repository contains comprehensive materials for learning network analysis with applications to healthcare learning networks, specifically Project ECHO. The workshop moves from foundational network theory through hands-on analysis to practical applications for improving healthcare delivery networks.
+This repository contains comprehensive materials for learning network analysis with applications to healthcare learning networks, specifically Project ECHO. The workshop moves from foundational network theory through hands-on analysis to practical applications.
 
 ### 🎯 Learning Objectives
 
