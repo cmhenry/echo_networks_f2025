@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Network Analysis: From Theory to Practice</title>
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.3.1/dist/reset.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.3.1/dist/reveal.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.3.1/dist/theme/white.css">
+    
+    <style>
+        .reveal h1, .reveal h2, .reveal h3 {
+            color: #2c3e50;
+        }
+        .reveal .progress {
+            color: #2c3e50;
+        }
+        .two-column {
+            display: flex;
+            justify-content: space-between;
+        }
+        .column {
+            flex: 1;
+            padding: 0 15px;
+        }
+        .highlight-box {
+            background: #f0f7ff;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border-left: 4px solid #3498db;
+            font-size: 0.85em;
+            line-height: 1.3;
+        }
+        .warning-box {
+            background: #fff5f5;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            border-left: 4px solid #e74c3c;
+            font-size: 0.85em;
+            line-height: 1.3;
+        }
+        .success-box {
+            background: #f0fff4;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border-left: 4px solid #27ae60;
+            font-size: 0.85em;
+            line-height: 1.3;
+        }
+        .demo-box {
+            background: #fff9e6;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border-left: 4px solid #f39c12;
+            font-size: 0.85em;
+            line-height: 1.3;
+        }
+        .slide-number {
+            color: #2c3e50 !important;
+        }
+        table {
+            margin: 0 auto;
+            font-size: 0.9em;
+        }
+        th {
+            background-color: #3498db;
+            color: white;
+            padding: 10px;
+        }
+        td {
+            padding: 10px;
+            border: 1px solid #ddd;
+        }
+        .reveal p {
+            line-height: 1.3;
+        }
+        .reveal li {
+            margin-top: 0.3em;
+            margin-bottom: 0.3em;
+        }
+        .reveal h2 {
+            margin-bottom: 0.5em;
+        }
+        .reveal h3 {
+            font-size: 1.2em;
+            margin-top: 0.5em;
+        }
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.85em;
+        }
+    </style>
+</head>
+<body>
+    <div class="reveal">
+        <div class="slides">
+            
+            <!-- Title Slide -->
+                        <section data-background-image="./img/slide1-bg.png"
+                    data-background-size="100% 100%"
+                    data-background-position="center"
+                    data-background-repeat="no-repeat">
+                <h1 style="color: #ffffff">Network Analysis:<br>From Theory to Practice</h1>
+                <p style="margin-top: 50px; color: #ffffff">
+                    Project ECHO REDI Team Workshop
+                </p>
+                <p style="margin-top: 30px;">
+                    <small style="color: #ffffff">Colin Henry, PhD<br>
+                    University of Zurich</small>
+                </p>
+            </section>
+
+            <!-- Agenda -->
+            <section>
+                <h2>Workshop Roadmap</h2>
+                <div style="text-align: left; margin: 0 auto; width: 80%;">
+                    <p><strong>Part 1: Network Theory</strong> - Foundational concepts & frameworks</p>
+                    <p><strong>Part 2: Describing Networks</strong> - Visualization & centrality measures</p>
+                    <p><strong>Part 3: Statistical Models</strong> - From OLS to network-specific approaches</p>
+                </div>
+                <div class="demo-box">
+                    <p><strong>Materials:</strong> Follow along with our R Markdown notebooks in RStudio</p>
+                </div>
+            </section>
+
+<!-- Part 1: Network Theory and Foundations - REVISED -->
+<section>
+    <section>
+        <h2>Part 1: Network Fundamentals & Theory</h2>
+        <p style="font-size: 1.2em;">Building from basic concepts to theoretical frameworks</p>
+    </section>
+
+    <section>
+        <h2>What is a Network?</h2>
+        <div class="highlight-box">
+            <p><strong>Simple Definition:</strong> A network is a collection of actors and the connections between them</p>
+        </div>
+        <div class="two-column" style="margin-top: 30px;">
+            <!-- <div class="column">
+                <h3>Examples in Healthcare</h3>
+                <ul>
+                    <li>Clinics referring patients</li>
+                    <li>Providers sharing knowledge</li>
+                    <li>Disease transmission paths</li>
+                    <li>Medical supply chains</li>
+                </ul>
+            </div> -->
+            <div class="column">
+                <h3>Examples in ECHO</h3>
+                <ul>
+                    <li>Hub teaching spokes</li>
+                    <li>Spokes learning from peers</li>
+                    <li>Experts advising hub</li>
+                    <li>Case discussions flowing between experts</li>
+                </ul>
+            </div>
+        </div>
+        <div class="demo-box">
+            <p><strong>Key Insight:</strong> It's not just WHO is in the network, but HOW they're connected</p>
+        </div>
+    </section>
+
+    <section>
+        <h2>Basic Network Vocabulary</h2>
+        <table>
+            <tr>
+                <th>Term</th>
+                <th>Also Called</th>
+                <th>Definition</th>
+                <th>ECHO Example</th>
+            </tr>
+            <tr>
+                <td><strong>Node</strong></td>
+                <td>Vertex, Actor</td>
+                <td>An entity in the network</td>
+                <td>A clinic or hub</td>
+            </tr>
+            <tr>
+                <td><strong>Edge</strong></td>
+                <td>Tie, Link, Arc</td>
+                <td>A connection between nodes</td>
+                <td>Teaching relationship</td>
+            </tr>
+            <tr>
+                <td><strong>Degree</strong></td>
+                <td>Connectivity</td>
+                <td>Number of connections a node has</td>
+                <td>How many partners a clinic has</td>
+            </tr>
+        </table>
+    </section>
+
+    <section>
+        <h2>Basic Network Vocabulary</h2>
+        <table>
+            <tr>
+                <th>Term</th>
+                <th>Also Called</th>
+                <th>Definition</th>
+                <th>ECHO Example</th>
+            </tr>
+            <tr>
+                <td><strong>Path</strong></td>
+                <td>Route</td>
+                <td>Sequence of edges connecting nodes</td>
+                <td>How knowledge travels</td>
+            </tr>
+            <tr>
+                <td><strong>Component</strong></td>
+                <td>Cluster</td>
+                <td>Group of connected nodes</td>
+                <td>Regional clinic groups</td>
+            </tr>
+        </table>
+    </section>
+
+
+
+        <section>
+        <h2>Types of Ties (Edges)</h2>
+        <div class="two-column">
+            <div class="column">
+                <h3>Tie Characteristics</h3>
+                <div class="highlight-box">
+                    <p><strong>Directed vs Undirected</strong><br>
+                    Does the relationship have direction?<br>
+                    Teaching: Hub → Spoke (directed)<br>
+                    Collaboration: Clinic ↔ Clinic (undirected)</p>
+                </div>
+            </div>
+            <div class="column">
+                <h3></h3>
+                <div class="highlight-box">
+                    <p><strong>Weighted vs Binary</strong><br>
+                    Is it just yes/no or does strength matter?<br>
+                    Binary: Connected or not<br>
+                    Weighted: 10 interactions vs 2</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+        <section>
+        <h2>Types of Ties (Edges)</h2>
+        <div class="two-column">
+            <div class="column">
+                <h3>In ECHO Networks</h3>
+                <div class="success-box">
+                    <p><strong>Teaching Ties</strong><br>
+                    • Directed: Hub → Spokes<br>
+                    • Weighted: Session frequency<br>
+                    • Formal relationship</p>
+                </div>
+            </div>
+            <div class="column">
+                <div class="success-box">
+                    <p><strong>Peer Learning Ties</strong><br>
+                    • Can be bidirectional<br>
+                    • Weighted: Interaction intensity<br>
+                    • Often informal</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+
+    <section>
+        <h2>From Individual to Relational Thinking</h2>
+        <div class="warning-box">
+            <p><strong>Traditional Question:</strong> Why do some clinics perform better?<br>
+            Look at: Staff size, funding, location, equipment...</p>
+        </div>
+        <div class="success-box">
+            <p><strong>Network Question:</strong> How does a clinic's connections affect performance?<br>
+            Look at: Who they learn from, who they teach, their position in the network...</p>
+        </div>
+
+    </section>
+
+    <section>
+        <h2>Why Networks Matter: Core Principles</h2>
+        <div class="highlight-box">
+            <p><strong>1. Connections Create Constraints & Opportunities</strong><br>
+            Your position determines what information reaches you</p>
+        </div>
+        <div class="highlight-box">
+            <p><strong>2. Structure Shapes Behavior</strong><br>
+            Network patterns influence individual actions</p>
+        </div>
+    </section>
+
+        <section>
+        <h2>Why Networks Matter: Core Principles</h2>
+        <div class="highlight-box">
+            <p><strong>3. Position Confers Advantages</strong><br>
+            Some positions are more powerful/influential than others</p>
+        </div>
+        <div class="highlight-box">
+            <p><strong>4. Networks Evolve</strong><br>
+            Relationships form, strengthen, weaken, and dissolve over time</p>
+        </div>
+    </section>
+
+    <section>
+        <h2>Common Network Structures</h2>
+        <div class="two-column">
+            <div class="column">
+                <h3>Star/Hub-and-Spoke</h3>
+                <ul>
+                    <li>One central node connects all others</li>
+                    <li>Efficient but vulnerable</li>
+                    <li>Clear hierarchy</li>
+                </ul>
+            </div>
+            <div class="column">
+                <img src="img/hub_and_spoke.png">
+            </div>
+        </div>
+    </section>
+
+        <section>
+        <h2>Common Network Structures</h2>
+        <div class="two-column">
+
+            <div class="column">
+                <h3>Distributed/Mesh</h3>
+                <ul>
+                    <li>Many interconnections</li>
+                    <li>Resilient but complex</li>
+                    <li>No clear center</li>
+                </ul>
+            </div>
+            <div class="column">
+                <img src="img/distributed.png">
+            </div>
+        </div>
+    
+    </section>
+
+         <section>
+        <h2>Common Network Structures</h2>
+        <div class="two-column">
+
+            <div class="column">
+                <h3>Small World</h3>
+                <ul>
+                    <li>Clusters with bridges between</li>
+                    <li>Local density + global reach</li>
+                    <li>Six degrees of separation</li>
+                </ul>
+            </div>
+
+            <div class="column">
+                <img src="img/small_world.png">
+            </div>
+        </div>
+    </section>
+
+    <section>
+        <h2>Key Theoretical Frameworks</h2>
+        <p style="font-size: 0.9em; margin-bottom: 20px;">Now that we understand basic concepts, let's explore foundational theories:</p>
+        <div class="highlight-box">
+            <p><strong>Strength of Weak Ties (Granovetter, 1973)</strong><br>
+            Your distant acquaintances often provide more<br> novel information than close contacts<br>
+            <em>ECHO Application:</em> Occasional peer connections may bring fresh perspectives</p>
+        </div>
+    </section>
+
+        <section>
+        <h2>Key Theoretical Frameworks</h2>
+
+        <div class="highlight-box">
+            <p><strong>Structural Holes (Burt, 1992)</strong><br>
+            Bridging disconnected groups provides information and control advantages<br>
+            <em>ECHO Application:</em> Clinics connecting different specialties gain unique insights</p>
+        </div>
+    </section>
+
+            <section>
+        <h2>Key Theoretical Frameworks</h2>
+        <div class="highlight-box">
+            <p><strong>Small World Networks (Watts & Strogatz, 1998)</strong><br>
+            High clustering + short paths = optimal for diffusion and coordination<br>
+            <em>ECHO Application:</em> Regional clusters connected through hub enable rapid spread</p>
+        </div>
+    </section>
+
+                <section>
+        <h2>Key Theoretical Frameworks</h2>
+        <div class="highlight-box">
+            <p><strong>Preferential Attachment (Barabási, 1999)</strong><br>
+            "Rich get richer" - well-connected nodes attract more connections<br>
+            <em>ECHO Application:</em> Active clinics become natural peer leaders</p>
+        </div>
+    </section>
+
+    <section>
+        <h2>Three Fundamental Network Questions</h2>
+        <div class="warning-box">
+            <p><strong>1. Selection or Influence?</strong></p>
+            <p style="margin-left: 20px;">Do similar clinics choose to connect (homophily)?<br>
+            Or do connected clinics become similar (peer influence)?</p>
+            <p style="font-size: 0.85em; margin-top: 10px;"><em>Why it matters:</em> Determines intervention strategy</p>
+        </div>
+    </section>
+        <section>
+        <h2>Three Fundamental Network Questions</h2>
+        <div class="warning-box">
+            <p><strong>2. How Does Structure Shape Outcomes?</strong></p>
+            <p style="margin-left: 20px;">Which network positions lead to better performance?<br>
+            How does connectivity affect adoption of best practices?</p>
+            <p style="font-size: 0.85em; margin-top: 10px;"><em>Why it matters:</em> Identifies high-leverage positions</p>
+        </div>
+    </section>
+        <section>
+        <h2>Three Fundamental Network Questions</h2>
+        <div class="warning-box">
+            <p><strong>3. How Do Networks Evolve?</strong></p>
+            <p style="margin-left: 20px;">What drives new connection formation?<br>
+            Why do some relationships persist while others fade?</p>
+            <p style="font-size: 0.85em; margin-top: 10px;"><em>Why it matters:</em> Guides network growth strategies</p>
+        </div>
+    </section>
+
+    <section>
+        <h2>Ready to Analyze Networks?</h2>
+        <div class="success-box">
+            <p><strong>✓ You now understand (hopefully):</strong></p>
+            <ul>
+                <li>Basic network terminology (nodes, edges, paths)</li>
+                <li>Different types of ties and structures</li>
+                <li>Why network perspective matters</li>
+                <li>Key theoretical frameworks</li>
+                <li>Fundamental research questions</li>
+            </ul>
+        </div>
+    </section>
+</section>
+            <!-- Part 2: Describing Networks -->
+            <section>
+                <section>
+                    <h2>Part 2: Describing Networks</h2>
+                    <p style="font-size: 1.2em;">Measurement, visualization, and interpretation</p>
+                    <div class="demo-box">
+                        <p><strong>Hands-On:</strong> <code>part2_basic_descriptives.Rmd</code> in RStudio</p>
+                    </div>
+                </section>
+
+                <!-- <section>
+                    <h2>Data Structures: Two Representations</h2>
+                    <div class="two-column">
+                        <div class="column">
+                            <h3>Edge List</h3>
+                            <table style="font-size: 0.8em;">
+                                <tr><th>From</th><th>To</th><th>Weight</th></tr>
+                                <tr><td>Hub</td><td>Spoke_A</td><td>10</td></tr>
+                                <tr><td>Hub</td><td>Spoke_B</td><td>8</td></tr>
+                                <tr><td>Spoke_A</td><td>Spoke_B</td><td>3</td></tr>
+                            </table>
+                            <p style="font-size: 0.85em;">Intuitive, efficient for sparse networks</p>
+                        </div>
+                        <div class="column">
+                            <h3>Adjacency Matrix</h3>
+                            <table style="font-size: 0.8em;">
+                                <tr><th></th><th>Hub</th><th>A</th><th>B</th></tr>
+                                <tr><td>Hub</td><td>0</td><td>10</td><td>8</td></tr>
+                                <tr><td>A</td><td>0</td><td>0</td><td>3</td></tr>
+                                <tr><td>B</td><td>0</td><td>0</td><td>0</td></tr>
+                            </table>
+                            <p style="font-size: 0.85em;">Mathematical operations, algorithms</p>
+                        </div>
+                    </div>
+                    <div class="success-box">
+                        <p><strong>In Notebook:</strong> Transform ECHO edge list to adjacency matrix using <code>netify</code></p>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Visualization: Revealing Structure</h2>
+                    <div class="highlight-box">
+                        <p><strong>Visual Encoding Best Practices</strong></p>
+                        <ul>
+                            <li><strong>Position:</strong> Force-directed layouts reveal communities</li>
+                            <li><strong>Size:</strong> Map to importance metrics (degree, betweenness)</li>
+                            <li><strong>Color:</strong> Categorical (node type) or continuous (centrality)</li>
+                            <li><strong>Edge width:</strong> Relationship strength or frequency</li>
+                        </ul>
+                    </div>
+                    <div class="demo-box">
+                        <p><strong>Live Demo:</strong> Create interactive network visualization with <code>igraph</code></p>
+                        <p>Color: Node type | Size: Participation rate | Edge width: Interaction strength</p>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Centrality: Multiple Dimensions of Importance</h2>
+                    <table>
+                        <tr>
+                            <th>Measure</th>
+                            <th>Concept</th>
+                            <th>ECHO Interpretation</th>
+                        </tr>
+                        <tr>
+                            <td><strong>Degree</strong></td>
+                            <td>Activity level</td>
+                            <td>How many connections does a clinic have?</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Betweenness</strong></td>
+                            <td>Brokerage power</td>
+                            <td>Which sites control information flow?</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Closeness</strong></td>
+                            <td>Efficiency of reach</td>
+                            <td>Who can spread practices quickly?</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Eigenvector</strong></td>
+                            <td>Influential connections</td>
+                            <td>Connected to other important sites?</td>
+                        </tr>
+                    </table>
+                    <div class="success-box">
+                        <p><strong>In Notebook:</strong> Calculate all centrality measures and identify key brokers</p>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Network-Level Properties</h2>
+                    <div class="highlight-box">
+                        <p><strong>Density: 0.10</strong><br>
+                        Only 10% of possible connections exist → Sparse, hub-dependent structure</p>
+                    </div>
+                    <div class="highlight-box">
+                        <p><strong>Centralization: 0.73</strong><br>
+                        Network heavily depends on central actors → Vulnerability to hub failure</p>
+                    </div>
+                    <div class="highlight-box">
+                        <p><strong>Clustering: 0.15</strong><br>
+                        Low transitivity → Limited peer-to-peer learning opportunities</p>
+                    </div>
+                    <div class="highlight-box">
+                        <p><strong>Average Path Length: 2.3</strong><br>
+                        Short paths → Efficient for information dissemination</p>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Key ECHO Network Findings</h2>
+                    <div class="success-box">
+                        <p><strong>Structural Patterns Discovered</strong></p>
+                        <ol>
+                            <li>Classic hub-and-spoke architecture dominates</li>
+                            <li>Hub has 10x higher betweenness than any spoke</li>
+                            <li>Geographic clustering exists but underutilized</li>
+                            <li>Experts peripheral but serve as knowledge reservoirs</li>
+                            <li>Network vulnerable: removing hub creates 15+ components</li>
+                        </ol>
+                    </div>
+                    <div class="demo-box">
+                        <p><strong>Interactive Analysis:</strong> Run vulnerability simulation in notebook</p>
+                    </div>
+                </section>-->
+            </section>
+
+            <!-- Part 3: Statistical Models -->
+            <section>
+                <section>
+                    <h2>Part 3: Statistical Models for Networks</h2>
+                    <p style="font-size: 1.2em;">Why standard statistics (often) fail and what to do instead</p>
+                    <div class="demo-box">
+                        <p><strong>Hands-On:</strong> <code>part3_models_for_net_inference.Rmd</code></p>
+                    </div>
+                </section>
+
+                <!-- <section>
+                    <h2>The Independence Problem</h2>
+                    <div class="warning-box">
+                        <p><strong>Fundamental Violation</strong><br>
+                        Standard statistics assume independent observations.<br>
+                        Networks are defined by interdependence!</p>
+                    </div>
+                    <div class="two-column" style="margin-top: 20px;">
+                        <div class="column">
+                            <h3>What Goes Wrong</h3>
+                            <ul>
+                                <li>Underestimated standard errors</li>
+                                <li>Invalid p-values</li>
+                                <li>Biased coefficients</li>
+                                <li>Wrong confidence intervals</li>
+                            </ul>
+                        </div>
+                        <div class="column">
+                            <h3>Network Effects</h3>
+                            <ul>
+                                <li>Autocorrelation</li>
+                                <li>Simultaneity bias</li>
+                                <li>Dyadic dependencies</li>
+                                <li>Triadic closure</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="demo-box">
+                        <p><strong>In Notebook:</strong> Test for network autocorrelation in residuals</p>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Approach 1: Network Measures in Regression</h2>
+                    <div class="highlight-box">
+                        <p><strong>Research Question:</strong> Does network centrality predict participation?</p>
+                        <p><code>participation ~ degree + betweenness + controls</code></p>
+                    </div>
+                    <div class="success-box">
+                        <p><strong>Finding:</strong> Each additional connection → +2.3% participation (p < 0.05)</p>
+                        <p><strong>R² = 0.42</strong></p>
+                    </div>
+                    <div class="warning-box">
+                        <p><strong>BUT:</strong> Residual correlation between connected nodes = 0.31<br>
+                        Standard errors are underestimated by ~40%!</p>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Approach 2: Network Formation Models</h2>
+                    <div class="highlight-box">
+                        <p><strong>Shift perspective:</strong> Model why ties exist, not their consequences</p>
+                        <p>Unit of analysis: Dyads (pairs of actors)</p>
+                    </div>
+                    <table style="font-size: 0.85em;">
+                        <tr>
+                            <th>Factor</th>
+                            <th>Odds Ratio</th>
+                            <th>Interpretation</th>
+                        </tr>
+                        <tr>
+                            <td>Same state</td>
+                            <td>2.34***</td>
+                            <td>2.3x more likely to connect</td>
+                        </tr>
+                        <tr>
+                            <td>Hub sender</td>
+                            <td>8.91***</td>
+                            <td>Hub initiates most ties</td>
+                        </tr>
+                        <tr>
+                            <td>Years difference</td>
+                            <td>0.92*</td>
+                            <td>Similar experience connects</td>
+                        </tr>
+                    </table>
+                    <div class="demo-box">
+                        <p><strong>Live Coding:</strong> Fit logistic regression on dyadic data</p>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Advanced: The AMEN Framework</h2>
+                    <div class="highlight-box">
+                        <p><strong>Additive and Multiplicative Effects Network Model</strong></p>
+                        <p style="font-family: monospace;">Y[i,j] = μ + β'X[i,j] + a[i] + b[j] + u[i]'v[j] + ε[i,j]</p>
+                    </div>
+                    <div class="success-box">
+                        <p><strong>Key Features:</strong></p>
+                        <ul>
+                            <li><strong>Sender effects (a[i]):</strong> Some actors more active</li>
+                            <li><strong>Receiver effects (b[j]):</strong> Some actors more popular</li>
+                            <li><strong>Latent positions (u,v):</strong> Unobserved homophily</li>
+                            <li><strong>Handles dependencies:</strong> Proper inference</li>
+                        </ul>
+                    </div>
+                    <div class="demo-box">
+                        <p><strong>In Notebook:</strong> Prepare data for AMEN model with <code>netify</code></p>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Model Selection Decision Tree</h2>
+                    <div style="text-align: left; margin: 0 auto; width: 90%;">
+                        <p><strong>Q: What's your research question?</strong></p>
+                        <p style="margin-left: 20px;">→ Individual outcomes? Use OLS with caution</p>
+                        <p style="margin-left: 20px;">→ Tie formation? Use network formation models</p>
+                        <p style="margin-left: 20px;">→ Network evolution? Need longitudinal data</p>
+                        
+                        <p style="margin-top: 20px;"><strong>Q: How large is your network?</strong></p>
+                        <p style="margin-left: 20px;">→ < 30 nodes: Any method works</p>
+                        <p style="margin-left: 20px;">→ 30-100 nodes: Prefer network models</p>
+                        <p style="margin-left: 20px;">→ > 1000 nodes: Computational limits apply</p>
+                        
+                        <p style="margin-top: 20px;"><strong>Q: What's your audience?</strong></p>
+                        <p style="margin-left: 20px;">→ Medical journal: Start with OLS</p>
+                        <p style="margin-left: 20px;">→ Network conference: Use AMEN/ERGM</p>
+                    </div>
+                </section> -->
+            </section>
+
+            <!-- Part 4: Applications
+            <section>
+                <section>
+                    <h2>Part 4: ECHO Applications</h2>
+                    <p style="font-size: 1.2em;">Translating analysis into actionable insights</p>
+                </section>
+
+                <section>
+                    <h2>Strategic Intervention Points</h2>
+                    <div class="highlight-box">
+                        <p><strong>High-Leverage Targets Identified</strong><br>
+                        Sites with high betweenness but low participation:</p>
+                        <ul>
+                            <li>Rural_Clinic_C (betweenness: 89.2, participation: 42%)</li>
+                            <li>Tribal_Health_01 (betweenness: 76.5, participation: 38%)</li>
+                            <li>FQHC_Northwest (betweenness: 71.3, participation: 45%)</li>
+                        </ul>
+                    </div>
+                    <div class="success-box">
+                        <p><strong>Recommendation:</strong> Small improvements at these sites cascade through network</p>
+                        <p>Expected impact: 15-20% increase in network-wide knowledge flow</p>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Evidence-Based Network Optimization</h2>
+                    <table style="font-size: 0.85em;">
+                        <tr>
+                            <th>Finding</th>
+                            <th>Evidence</th>
+                            <th>Action</th>
+                            <th>Impact</th>
+                        </tr>
+                        <tr>
+                            <td>Position → Outcomes</td>
+                            <td>r = 0.61***</td>
+                            <td>Strategic site selection</td>
+                            <td>+25% effectiveness</td>
+                        </tr>
+                        <tr>
+                            <td>Geographic homophily</td>
+                            <td>OR = 2.34</td>
+                            <td>Regional coordinators</td>
+                            <td>Double peer connections</td>
+                        </tr>
+                        <tr>
+                            <td>Peer learning gap</td>
+                            <td>30% of edges</td>
+                            <td>Facilitate introductions</td>
+                            <td>+40% knowledge sharing</td>
+                        </tr>
+                        <tr>
+                            <td>Hub vulnerability</td>
+                            <td>C = 0.73</td>
+                            <td>Create sub-hubs</td>
+                            <td>Resilience +60%</td>
+                        </tr>
+                    </table>
+                </section>
+
+                <section>
+                    <h2>Intervention Simulation Results</h2>
+                    <div class="highlight-box">
+                        <p><strong>Scenario:</strong> Connect 5 isolated spokes to 3 broker spokes</p>
+                    </div>
+                    <div class="success-box">
+                        <p><strong>Predicted Network Changes:</strong></p>
+                        <ul>
+                            <li>Density: 0.10 → 0.13 (+30%)</li>
+                            <li>Average path length: 2.3 → 2.1 (-9%)</li>
+                            <li>Clustering coefficient: 0.15 → 0.22 (+47%)</li>
+                            <li>Centralization: 0.73 → 0.68 (-7%)</li>
+                        </ul>
+                    </div>
+                    <div class="highlight-box">
+                        <p><strong>Bottom Line:</strong> 15 new edges → 30% improvement in network metrics</p>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Implementation Roadmap</h2>
+                    <div class="demo-box">
+                        <p><strong>Phase 1 (Months 1-3):</strong> Quick Wins</p>
+                        <ul>
+                            <li>Connect isolated sites to nearest brokers</li>
+                            <li>Create state-based email lists</li>
+                            <li>Monthly peer sharing sessions</li>
+                        </ul>
+                    </div>
+                    <div class="demo-box">
+                        <p><strong>Phase 2 (Months 4-6):</strong> Structural Changes</p>
+                        <ul>
+                            <li>Identify and train regional coordinators</li>
+                            <li>Establish specialty working groups</li>
+                            <li>Implement buddy system for new sites</li>
+                        </ul>
+                    </div>
+                    <div class="demo-box">
+                        <p><strong>Phase 3 (Months 7-12):</strong> Sustainability</p>
+                        <ul>
+                            <li>Develop regional sub-hubs</li>
+                            <li>Create peer mentorship program</li>
+                            <li>Build redundant communication channels</li>
+                        </ul>
+                    </div>
+                </section>
+            </section> -->
+
+            <!-- Summary -->
+            <section>
+                <h2>Key Takeaways</h2>
+                <div class="success-box">
+                    <p><strong>Theoretical Insights</strong></p>
+                    <ul>
+                        <li>Networks reveal invisible patterns that drive outcomes</li>
+                        <li>Position matters as much as attributes</li>
+                        <li>Small structural changes can have large impacts</li>
+                    </ul>
+                </div>
+            </section>
+            <section>
+                <div class="success-box">
+                    <p><strong>Methodological Lessons</strong></p>
+                    <ul>
+                        <li>Standard statistics often inappropriate for networks</li>
+                        <li>Multiple modeling approaches exist - choose wisely</li>
+                        <li>Network-specific models handle dependencies properly</li>
+                    </ul>
+                </div>
+            </section>
+            <!-- <section>
+                <div class="success-box">
+                    <p><strong>Practical Applications</strong></p>
+                    <ul>
+                        <li>Hub-and-spoke efficient but vulnerable</li>
+                        <li>Peer connections are underutilized resource</li>
+                        <li>Strategic interventions can optimize network performance</li>
+                    </ul>
+                </div>
+            </section> -->
+
+            <!-- Resources -->
+            <section>
+                <h2>Resources & Next Steps</h2>
+                <div style="text-align: left; margin: 0 auto; width: 85%;">
+                    <p><strong>Workshop Materials</strong><br>
+                    • Github: github.com/cmhenry/echo_networks_f2025
+                    
+                    <p style="margin-top: 20px;"><strong>Key R Packages</strong><br>
+                    • <code>netify</code> - Modern network analysis framework<br>
+                    • <code>igraph</code> - Visualization and algorithms<br>
+                    • <code>amen</code> - Advanced network models</p>
+                    
+                    <p style="margin-top: 20px;"><strong>Contact</strong><br>
+                    Questions? <br>
+                    [colin.henry@ipz.uzh.ch]</p>
+                </div>
+            </section>
+
+            <!-- Q&A -->
+            <section data-background-gradient="linear-gradient(135deg, #667eea 0%, #764ba2 100%)">
+                <h1 style="color: #ffffff">Questions & Discussion</h1>
+                <div style="margin-top: 50px;">
+                    <p style="color: #ffffff; font-size: 1.2em;">What network patterns do you see in your work?</p>
+                    <p style="color: #ffffff; font-size: 1.2em;">How might you apply these methods?</p>
+                    <p style="color: #ffffff; font-size: 1.2em;">What challenges do you anticipate?</p>
+                </div>
+                <div style="margin-top: 80px;">
+                    <p style="color: #ffffff;"><small>Thank you for participating in this workshop!</small></p>
+                </div>
+            </section>
+
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@4.3.1/dist/reveal.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@4.3.1/plugin/notes/notes.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@4.3.1/plugin/markdown/markdown.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@4.3.1/plugin/highlight/highlight.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@4.3.1/plugin/zoom/zoom.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@4.3.1/plugin/search/search.js"></script>
+    
+    <script>
+        Reveal.initialize({
+            hash: true,
+            controls: true,
+            progress: true,
+            center: true,
+            transition: 'slide',
+            
+            plugins: [ RevealMarkdown, RevealHighlight, RevealNotes, RevealZoom, RevealSearch ],
+            
+            controlsLayout: 'bottom-right',
+            controlsBackArrows: 'visible',
+            slideNumber: 'c/t',
+            showSlideNumber: 'all',
+            
+            width: 1200,
+            height: 700,
+            
+            margin: 0.05,
+            
+            minScale: 0.2,
+            maxScale: 2.0
+        });
+    </script>
+</body>
+</html>

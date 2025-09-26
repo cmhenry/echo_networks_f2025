@@ -1,0 +1,1019 @@
+---
+title: "Part 3: Models for Network Inference"
+subtitle: "Network Analysis for Social Scientists Workshop"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: united
+    code_folding: show
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE,
+                      fig.width = 10, fig.height = 6)
+```
+
+# Introduction: Why Standard Statistics Fail for Networks
+
+## The Independence Assumption Problem
+
+Imagine trying to understand a conversation by analyzing each person's words in isolation, ignoring who they're talking to and what others are saying. That's essentially what we do when we apply standard statistical methods to network data - we miss the fundamental reality that actors are embedded in webs of relationships that shape their behaviors and outcomes.
+
+In traditional statistics, we assume observations are independent. But in networks, this assumption is fundamentally violated. If the ECHO hub adopts a new practice, connected spokes are more likely to adopt it too - not because of their individual characteristics, but because of their network connection. This interdependence isn't a nuisance to be corrected; it's the very phenomenon we want to study.
+
+### The Challenge of Network Inference
+
+Network data presents unique statistical challenges:
+
+1.  **Autocorrelation**: Connected actors tend to have similar outcomes
+2.  **Simultaneity**: Network position and outcomes co-evolve
+3.  **Selection vs Influence**: Do birds of a feather flock together, or do flocked birds become similar?
+4.  **Dyadic dependence**: The relationship between A and B affects the relationship between B and C
+
+These challenges require specialized statistical approaches. In this session, we'll explore both traditional methods (with their limitations) and network-specific models designed to handle these complexities.
+
+### Learning Objectives
+
+By the end of this notebook, you'll understand: - How to use network measures in regression models (and why this is problematic) - The concept of network autocorrelation and its consequences - Network formation models and what they reveal - How to choose between different modeling approaches - How to translate model results into actionable insights
+
+### Setting Up Our Analysis Environment
+
+```{r load-libraries}
+# Load required libraries
+library(netify)       # Network modeling toolkit
+library(tidyverse)    # Data manipulation
+library(broom)        # Tidy model outputs
+library(ggplot2)      # Advanced plotting
+library(gridExtra)    # Arrange multiple plots
+library(knitr)        # Nice tables
+library(car)          # Regression diagnostics
+
+# Set options for cleaner output
+options(digits = 3)
+set.seed(42)
+theme_set(theme_minimal())
+
+# Load data from Part 2
+load("../data/part2_complete_analysis.RData")  
+# Contains: net, centrality_df, edges, nodes, actor_data, g, A, echo_net
+
+# Quick verification
+cat("DATA LOADED:\n")
+cat("============\n")
+cat("Network object:", class(echo_net), "\n")
+cat("Nodes in network:", nrow(actor_data), "\n")
+cat("Edges in network:", nrow(edges), "\n")
+cat("Centrality measures:", ncol(centrality_df), "variables\n")
+```
+
+------------------------------------------------------------------------
+
+# Section 1: Network Measures in Traditional Models
+
+## The Intuitive (But Flawed) Approach
+
+The most straightforward way to incorporate network information into analysis is to treat network measures like any other variable. Want to know if well-connected clinics have better outcomes? Just run a regression with degree centrality as a predictor. This approach is intuitive, uses familiar methods, and often yields interesting results. But it's also fundamentally flawed in ways we need to understand.
+
+### Preparing Our Analysis Dataset
+
+Let's combine network measures with node attributes to create a dataset for traditional analysis:
+
+```{r prepare-data}
+# Merge network and attribute data
+analysis_df <- centrality_df %>%
+  left_join(nodes, by = c("actor" = "node_id")) %>%
+  # Create derived variables for analysis
+  mutate(
+    # Log transformations for skewed variables
+    log_staff_size = log(staff_size + 1),
+    log_patient_volume = log(patient_volume + 1),
+    
+    # Binary indicators
+    is_rural = if_else(rural_urban == "rural", 1, 0),
+    high_participation = if_else(participation_rate > median(participation_rate), 1, 0),
+    
+    # Standardized centrality for interpretation
+    betweenness_std = scale(betweenness)[,1],
+    degree_std = scale(total_degree)[,1],
+    
+    # Use participation_rate consistently
+    participation = participation_rate
+  ) %>%
+  # Remove any duplicate columns
+  select(-any_of(c("participation.x", "participation.y")))
+
+cat("ANALYSIS DATASET PREPARED:\n")
+cat("==========================\n")
+cat("Observations:", nrow(analysis_df), "actors\n")
+cat("Variables:", ncol(analysis_df), "features\n")
+cat("Node types:", paste(unique(analysis_df$type), collapse = ", "), "\n")
+cat("States represented:", length(unique(analysis_df$state)), "\n")
+```
+
+### Research Question: Does Network Position Predict Engagement?
+
+This is a natural question for ECHO programs: Are well-connected sites more engaged? Let's explore this relationship, keeping in mind the statistical issues we'll encounter.
+
+```{r explore-relationship}
+cat("\n=== EXPLORING THE POSITION-PARTICIPATION RELATIONSHIP ===\n\n")
+
+# First, let's visualize the relationship
+ggplot(analysis_df, aes(x = total_degree, y = participation)) +
+  geom_point(aes(color = type, size = staff_size), alpha = 0.7) +
+  geom_smooth(method = "lm", se = TRUE, color = "darkblue") +
+  scale_color_manual(values = c(hub = "#E74C3C", spoke = "#3498DB", expert = "#F39C12")) +
+  labs(
+    title = "Network Position and Participation",
+    subtitle = "Are better-connected sites more engaged?",
+    x = "Degree Centrality (Total Connections)",
+    y = "Participation Rate (%)",
+    color = "Node Type",
+    size = "Staff Size"
+  ) +
+  theme_minimal()
+
+# Calculate correlation
+correlation <- cor(analysis_df$total_degree, analysis_df$participation, use = "complete.obs")
+cat("Correlation between degree and participation:", round(correlation, 3), "\n")
+cat("This suggests a", ifelse(abs(correlation) > 0.5, "strong", "moderate"), "relationship.\n")
+cat("But correlation doesn't imply causation, especially in networks!\n")
+```
+
+## Model 1: Simple Linear Regression
+
+Let's start with the simplest possible model:
+
+```{r simple-model}
+# Fit simple model
+model1 <- lm(participation ~ total_degree, data = analysis_df)
+
+cat("\nMODEL 1: SIMPLE LINEAR REGRESSION\n")
+cat("==================================\n")
+cat("participation = β₀ + β₁(degree) + ε\n\n")
+
+# Display results
+summary(model1)
+
+# Interpretation
+coef_degree <- coef(model1)["total_degree"]
+cat("\nINTERPRETATION:\n")
+cat("Each additional connection is associated with a", 
+    round(coef_degree, 2), "percentage point increase in participation.\n")
+cat("R-squared:", round(summary(model1)$r.squared, 3), "\n")
+
+# But wait...
+cat("\n⚠️ WARNING: This model assumes each clinic is independent!\n")
+cat("In reality, connected clinics influence each other.\n")
+cat("Our standard errors are likely underestimated.\n")
+```
+
+## Model 2: Multiple Regression with Controls
+
+Real-world relationships are complex. Let's add control variables:
+
+```{r multiple-regression}
+# More sophisticated model
+model2 <- lm(participation ~ 
+             # Network measures
+             total_degree + betweenness_std + 
+             # Organizational characteristics
+             years_in_echo + log_staff_size + 
+             # Geographic factors
+             is_rural + 
+             # Node type
+             factor(type), 
+             data = analysis_df)
+
+cat("\nMODEL 2: MULTIPLE REGRESSION\n")
+cat("=============================\n")
+
+# Tidy output
+model2_results <- tidy(model2, conf.int = TRUE) %>%
+  mutate(
+    significant = if_else(p.value < 0.05, "***", 
+                  if_else(p.value < 0.1, "*", "")),
+    across(where(is.numeric), round, 3)
+  )
+
+kable(model2_results, caption = "Multiple Regression Results")
+
+cat("\nMODEL QUALITY:\n")
+glance(model2) %>%
+  select(r.squared, adj.r.squared, sigma, AIC, BIC) %>%
+  kable()
+```
+
+### Visualizing Model Results
+
+```{r coefficient-plot}
+# Coefficient plot
+coef_plot_data <- model2_results %>%
+  filter(term != "(Intercept)") %>%
+  mutate(
+    term_clean = case_when(
+      term == "total_degree" ~ "Network Connections",
+      term == "betweenness_std" ~ "Betweenness (std)",
+      term == "years_in_echo" ~ "Years in ECHO",
+      term == "log_staff_size" ~ "Staff Size (log)",
+      term == "is_rural" ~ "Rural Location",
+      str_detect(term, "type") ~ str_replace(term, "factor\\(type\\)", "Type: "),
+      TRUE ~ term
+    )
+  )
+
+ggplot(coef_plot_data, aes(x = estimate, y = reorder(term_clean, estimate))) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "gray50") +
+  geom_point(aes(color = p.value < 0.05), size = 3) +
+  geom_errorbarh(aes(xmin = conf.low, xmax = conf.high), height = 0.2) +
+  scale_color_manual(values = c("TRUE" = "#27ae60", "FALSE" = "gray60"),
+                     labels = c("No", "Yes"), name = "Significant") +
+  labs(
+    title = "Factors Associated with Participation",
+    subtitle = "Multiple regression coefficients with 95% CI",
+    x = "Effect on Participation Rate (%)",
+    y = ""
+  ) +
+  theme_minimal()
+```
+
+## Checking Model Assumptions (And Finding Problems)
+
+Standard regression assumes independence. Let's check if this holds:
+
+```{r diagnostics}
+cat("\n=== DIAGNOSTIC CHECKS ===\n")
+
+# Standard diagnostic plots
+par(mfrow = c(2, 2))
+plot(model2, which = c(1, 2, 3, 4))
+par(mfrow = c(1, 1))
+
+# The real problem: Network autocorrelation
+cat("\nTESTING FOR NETWORK AUTOCORRELATION:\n")
+cat("====================================\n")
+
+# Get residuals
+residuals_model2 <- residuals(model2)
+names(residuals_model2) <- analysis_df$actor
+
+# For each edge, calculate residual correlation
+edge_residuals <- data.frame()
+for(i in 1:nrow(edges)) {
+  from_node <- edges$from[i]
+  to_node <- edges$to[i]
+  
+  if(from_node %in% names(residuals_model2) & 
+     to_node %in% names(residuals_model2)) {
+    edge_residuals <- rbind(edge_residuals, data.frame(
+      from = from_node,
+      to = to_node,
+      resid_from = residuals_model2[from_node],
+      resid_to = residuals_model2[to_node]
+    ))
+  }
+}
+
+# Calculate correlation between connected nodes' residuals
+residual_correlation <- cor(edge_residuals$resid_from, 
+                           edge_residuals$resid_to, 
+                           use = "complete.obs")
+
+cat("\nRESIDUAL CORRELATION BETWEEN CONNECTED NODES:", 
+    round(residual_correlation, 3), "\n")
+
+if(abs(residual_correlation) > 0.1) {
+  cat("\n⚠️ NETWORK AUTOCORRELATION DETECTED!\n")
+  cat("Connected nodes have correlated residuals.\n")
+  cat("This violates the independence assumption of OLS.\n")
+  cat("Consequences:\n")
+  cat("• Standard errors are underestimated\n")
+  cat("• P-values are too optimistic\n")
+  cat("• Confidence intervals are too narrow\n")
+}
+```
+
+### The Fundamental Problem with OLS for Networks
+
+```{r ols-problems}
+cat("\n=== WHY OLS FAILS FOR NETWORK DATA ===\n")
+cat("=======================================\n\n")
+
+# Create educational visualization
+problems_df <- data.frame(
+  Problem = c(
+    "Independence\nViolation",
+    "Network\nAutocorrelation", 
+    "Simultaneity\nBias",
+    "Selection\nEffects",
+    "Dyadic\nDependence"
+  ),
+  Description = c(
+    "Nodes influence each other through ties",
+    "Similar outcomes for connected actors",
+    "Position and outcomes co-evolve",
+    "Homophily vs influence confusion",
+    "Triadic closure and clustering"
+  ),
+  Consequence = c(
+    "Biased standard errors",
+    "Invalid hypothesis tests",
+    "Biased coefficients",
+    "Wrong causal inference",
+    "Model misspecification"
+  ),
+  Severity = c(4, 5, 3, 4, 3)  # Impact severity 1-5
+)
+
+# Visualize the problems
+ggplot(problems_df, aes(x = reorder(Problem, Severity), y = Severity)) +
+  geom_col(fill = "#e74c3c", alpha = 0.7) +
+  geom_text(aes(label = Description), y = 0.5, hjust = 0, size = 3) +
+  coord_flip() +
+  labs(
+    title = "Why Standard Statistics Fail for Networks",
+    subtitle = "Severity of different statistical issues",
+    x = "",
+    y = "Problem Severity"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_blank())
+
+cat("\nBOTTOM LINE:\n")
+cat("OLS can identify associations but:\n")
+cat("• Cannot establish causation\n")
+cat("• Underestimates uncertainty\n")
+cat("• Misses network mechanisms\n")
+cat("• Treats symptoms, not structure\n")
+```
+
+------------------------------------------------------------------------
+
+# Section 2: Network Formation Models
+
+## Understanding Why Ties Form
+
+Instead of asking "how does network position affect outcomes?", network formation models ask "why do connections exist in the first place?" This shift in perspective is profound - we're modeling the generative process that creates the network structure we observe.
+
+### The Logic of Dyadic Analysis
+
+In network formation models, our unit of analysis shifts from nodes to dyads (pairs of nodes). For a network with n nodes, we have n×(n-1) potential directed relationships. Our goal is to understand what makes some of these potential ties actual ties.
+
+```{r prepare-dyadic}
+cat("=== PREPARING DYADIC DATA ===\n")
+cat("=============================\n")
+
+# Create all possible dyads
+actors <- unique(c(edges$from, edges$to))
+n_actors <- length(actors)
+
+# Generate dyad dataset
+dyad_df <- expand.grid(
+  sender = actors,
+  receiver = actors,
+  stringsAsFactors = FALSE
+) %>%
+  filter(sender != receiver) %>%  # Remove self-loops
+  mutate(
+    # Does this edge exist?
+    edge_exists = 0
+  )
+
+# Mark existing edges
+for(i in 1:nrow(edges)) {
+  dyad_df$edge_exists[
+    dyad_df$sender == edges$from[i] & 
+    dyad_df$receiver == edges$to[i]
+  ] <- 1
+}
+
+cat("DYADIC DATASET:\n")
+cat("• Potential dyads:", nrow(dyad_df), "\n")
+cat("• Actual edges:", sum(dyad_df$edge_exists), "\n")
+cat("• Network density:", round(mean(dyad_df$edge_exists), 3), "\n")
+
+cat("\nKEY INSIGHT:\n")
+cat("We're now asking: What makes", sum(dyad_df$edge_exists), 
+    "dyads connect\nwhile", sum(!dyad_df$edge_exists), "remain unconnected?\n")
+```
+
+### Adding Dyadic Covariates
+
+What factors might predict tie formation in ECHO networks?
+
+```{r dyadic-covariates}
+# Enrich dyad data with attributes
+dyad_df <- dyad_df %>%
+  mutate(
+    # Sender characteristics
+    sender_type = nodes$node_type[match(sender, nodes$node_id)],
+    sender_years = nodes$years_in_echo[match(sender, nodes$node_id)],
+    sender_staff = nodes$staff_size[match(sender, nodes$node_id)],
+    sender_participation = nodes$participation_rate[match(sender, nodes$node_id)],
+    sender_state = nodes$state[match(sender, nodes$node_id)],
+    
+    # Receiver characteristics
+    receiver_type = nodes$node_type[match(receiver, nodes$node_id)],
+    receiver_years = nodes$years_in_echo[match(receiver, nodes$node_id)],
+    receiver_staff = nodes$staff_size[match(receiver, nodes$node_id)],
+    receiver_participation = nodes$participation_rate[match(receiver, nodes$node_id)],
+    receiver_state = nodes$state[match(receiver, nodes$node_id)],
+    
+    # Dyadic characteristics (relationships between pairs)
+    same_state = as.numeric(sender_state == receiver_state),
+    same_type = as.numeric(sender_type == receiver_type),
+    years_diff = abs(sender_years - receiver_years),
+    staff_diff = abs(sender_staff - receiver_staff),
+    
+    # Transformations
+    log_sender_staff = log(sender_staff + 1),
+    log_receiver_staff = log(receiver_staff + 1)
+  )
+
+cat("\nPOTENTIAL PREDICTORS OF TIE FORMATION:\n")
+cat("=======================================\n")
+cat("SENDER EFFECTS (Who initiates connections?):\n")
+cat("• Node type (hub, spoke, expert)\n")
+cat("• Years of experience in ECHO\n")
+cat("• Organization size\n")
+cat("• Engagement level\n\n")
+
+cat("RECEIVER EFFECTS (Who receives connections?):\n")
+cat("• Same factors, but for receiving ties\n\n")
+
+cat("DYADIC EFFECTS (What pairs connect?):\n")
+cat("• Geographic proximity (same state)\n")
+cat("• Homophily (same type)\n")
+cat("• Experience gaps\n")
+cat("• Size similarity\n")
+```
+
+## Fitting a Network Formation Model
+
+```{r formation-model}
+cat("\n=== NETWORK FORMATION MODEL ===\n")
+cat("================================\n")
+cat("Modeling: P(Edge from i to j) using logistic regression\n\n")
+
+formation_model <- glm(
+  edge_exists ~ 
+    # Sender effects
+    factor(sender_type) + sender_years + log_sender_staff + sender_participation +
+    # Receiver effects
+    factor(receiver_type) + receiver_years + log_receiver_staff + receiver_participation +
+    # Dyadic effects
+    same_state + same_type + years_diff,
+  data = dyad_df,
+  family = binomial(link = "logit")
+)
+
+# Model summary
+cat("MODEL RESULTS:\n")
+formation_results <- tidy(formation_model) %>%
+  mutate(
+    odds_ratio = exp(estimate),
+    effect = case_when(
+      estimate > 0 ~ "Increases",
+      estimate < 0 ~ "Decreases",
+      TRUE ~ "No effect"
+    ),
+    across(where(is.numeric), round, 3)
+  ) %>%
+  arrange(desc(abs(estimate)))
+
+kable(formation_results %>% 
+        select(term, estimate, odds_ratio, p.value, effect),
+      caption = "Network Formation Model Results")
+
+# Model fit
+cat("\nMODEL FIT STATISTICS:\n")
+cat("AIC:", AIC(formation_model), "\n")
+cat("Null deviance:", formation_model$null.deviance, "\n")
+cat("Residual deviance:", formation_model$deviance, "\n")
+cat("McFadden R²:", 
+    round(1 - formation_model$deviance/formation_model$null.deviance, 3), "\n")
+```
+
+### Interpreting Formation Patterns
+
+```{r interpret-formation}
+cat("\n=== KEY FORMATION PATTERNS ===\n")
+cat("===============================\n")
+
+# Identify significant predictors
+sig_predictors <- formation_results %>%
+  filter(p.value < 0.05, !str_detect(term, "Intercept"))
+
+if(nrow(sig_predictors) > 0) {
+  cat("\nSIGNIFICANT FACTORS:\n")
+  for(i in 1:nrow(sig_predictors)) {
+    cat("• ", sig_predictors$term[i], ":\n", sep = "")
+    cat("  Effect: ", sig_predictors$effect[i], " tie probability\n", sep = "")
+    cat("  Odds ratio: ", sig_predictors$odds_ratio[i], "\n", sep = "")
+  }
+} else {
+  cat("No significant predictors at p < 0.05\n")
+}
+
+# Predicted probabilities for key dyad types
+cat("\n\nPREDICTED CONNECTION PROBABILITIES:\n")
+cat("====================================\n")
+
+# Create scenarios
+scenarios <- data.frame(
+  scenario = c("Hub → Spoke", "Spoke → Hub", "Spoke → Spoke", 
+               "Expert → Hub", "Hub → Expert"),
+  sender_type = c("hub", "spoke", "spoke", "expert", "hub"),
+  receiver_type = c("spoke", "hub", "spoke", "hub", "expert"),
+  # Set other variables to means
+  sender_years = mean(dyad_df$sender_years),
+  receiver_years = mean(dyad_df$receiver_years),
+  log_sender_staff = mean(dyad_df$log_sender_staff),
+  log_receiver_staff = mean(dyad_df$log_receiver_staff),
+  sender_participation = mean(dyad_df$sender_participation),
+  receiver_participation = mean(dyad_df$receiver_participation),
+  same_state = 0,
+  same_type = c(0, 0, 1, 0, 0),
+  years_diff = mean(dyad_df$years_diff)
+)
+
+scenarios$probability <- predict(formation_model, 
+                                 newdata = scenarios, 
+                                 type = "response")
+
+kable(scenarios %>% select(scenario, probability) %>%
+        mutate(probability = round(probability, 3)),
+      caption = "Predicted Edge Probabilities by Dyad Type")
+
+# Visualization
+ggplot(scenarios, aes(x = scenario, y = probability, fill = probability)) +
+  geom_col(alpha = 0.8) +
+  scale_fill_gradient(low = "#3498DB", high = "#E74C3C") +
+  geom_text(aes(label = round(probability, 3)), vjust = -0.5) +
+  labs(
+    title = "Edge Formation Probabilities",
+    subtitle = "Which types of connections are most likely?",
+    x = "Dyad Type",
+    y = "Probability of Connection"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+------------------------------------------------------------------------
+
+# Section 3: Advanced Network Models - The AMEN Framework
+
+## Beyond Simple Formation Models
+
+The logistic regression approach treats each dyad as independent, but in reality, network formation involves complex dependencies. The AMEN (Additive and Multiplicative Effects Network) model addresses these by explicitly modeling:
+
+1.  **Sender heterogeneity**: Some actors are more active
+2.  **Receiver heterogeneity**: Some actors are more popular
+3.  **Dyadic correlation**: Reciprocity and transitivity
+4.  **Latent homophily**: Unobserved similarities
+
+```{r amen-framework}
+cat("=== THE AMEN MODEL FRAMEWORK ===\n")
+cat("=================================\n\n")
+
+cat("CONCEPTUAL MODEL:\n")
+cat("Y[i,j] = μ + β'X[i,j] + a[i] + b[j] + u[i]'v[j] + ε[i,j]\n\n")
+
+cat("WHERE:\n")
+cat("• μ: Overall network density\n")
+cat("• β'X[i,j]: Effects of observed dyadic covariates\n")
+cat("• a[i]: Random sender effects (out-degree heterogeneity)\n")
+cat("• b[j]: Random receiver effects (in-degree heterogeneity)\n")
+cat("• u[i]'v[j]: Multiplicative effects (latent positions)\n")
+cat("• ε[i,j]: Random noise\n\n")
+
+cat("KEY ADVANTAGES:\n")
+cat("• Accounts for degree heterogeneity\n")
+cat("• Captures transitivity and clustering\n")
+cat("• Models unobserved homophily\n")
+cat("• Handles network dependencies\n")
+```
+
+### Implementing AMEN with netify
+
+```{r amen-setup}
+# Prepare data for AMEN model
+cat("\nPREPARING DATA FOR AMEN:\n")
+cat("========================\n")
+
+# Create adjacency matrix for netify
+Y <- get_adjacency(echo_net)
+
+# Prepare covariates
+# Node-level covariates
+node_covariates <- actor_data %>%
+  select(years_in_echo, staff_size, participation_rate) %>%
+  mutate(across(everything(), scale))  # Standardize
+
+# Dyadic covariates (same state)
+same_state_matrix <- outer(actor_data$state, actor_data$state, "==") * 1
+diag(same_state_matrix) <- 0  # No self-loops
+
+cat("Data prepared:\n")
+cat("• Network matrix:", dim(Y)[1], "x", dim(Y)[2], "\n")
+cat("• Node covariates:", ncol(node_covariates), "variables\n")
+cat("• Dyadic covariate: Same state indicator\n")
+
+# Note: Full AMEN implementation would use:
+# library(amen)
+# amen_model <- ame(Y, 
+#                   Xdyad = array(same_state_matrix, dim=c(n,n,1)),
+#                   Xrow = node_covariates,
+#                   Xcol = node_covariates,
+#                   R = 2,  # latent dimension
+#                   model = "bin")
+
+cat("\nNOTE: Full AMEN requires the 'amen' package.\n")
+cat("See Hoff et al. (2021) for implementation details.\n")
+```
+
+------------------------------------------------------------------------
+
+# Section 4: Choosing the Right Model
+
+## Model Selection Framework
+
+Different research questions require different modeling approaches. Here's a practical guide:
+
+```{r model-selection}
+cat("=== MODEL SELECTION GUIDE ===\n")
+cat("=============================\n\n")
+
+selection_guide <- data.frame(
+  Research_Question = c(
+    "How does centrality affect outcomes?",
+    "What predicts tie formation?",
+    "Is there homophily in the network?",
+    "How do networks evolve?",
+    "What drives clustering?",
+    "Testing intervention effects"
+  ),
+  Recommended_Model = c(
+    "OLS with network measures",
+    "Network formation models",
+    "ERGM or AMEN",
+    "STERGM or longitudinal AMEN",
+    "ERGM with triangles",
+    "Both OLS and network models"
+  ),
+  Why = c(
+    "Simple, interpretable coefficients",
+    "Models the generative process",
+    "Separates selection from influence",
+    "Captures temporal dependencies",
+    "Explicitly models triadic closure",
+    "Different insights from each"
+  ),
+  Limitations = c(
+    "Ignores dependencies",
+    "Static snapshot only",
+    "Computationally intensive",
+    "Requires panel data",
+    "Can be unstable",
+    "Multiple testing issues"
+  )
+)
+
+kable(selection_guide, caption = "Choosing the Right Network Model")
+```
+
+## Practical Considerations
+
+```{r practical-considerations}
+cat("\n=== PRACTICAL CONSIDERATIONS ===\n")
+cat("=================================\n")
+
+considerations <- list(
+  "Sample Size" = c(
+    "OLS: Works with small networks (n > 30)",
+    "Formation models: Need n² observations",
+    "AMEN/ERGM: Better with n > 50",
+    "Rule of thumb: More complex models need more data"
+  ),
+  
+  "Computational Resources" = c(
+    "OLS: Instant, runs on any computer",
+    "Logistic: Fast for moderate networks",
+    "AMEN: Hours for large networks",
+    "ERGM: Can be very slow, may not converge"
+  ),
+  
+  "Interpretability" = c(
+    "OLS: Everyone understands regression",
+    "Logistic: Familiar to most researchers",
+    "AMEN: Requires network expertise",
+    "ERGM: Complex, hard to explain"
+  ),
+  
+  "Software Requirements" = c(
+    "OLS: Base R",
+    "Formation: Base R (glm)",
+    "AMEN: amen package",
+    "ERGM: statnet suite"
+  )
+)
+
+for(category in names(considerations)) {
+  cat("\n", category, ":\n", sep = "")
+  for(point in considerations[[category]]) {
+    cat("  • ", point, "\n", sep = "")
+  }
+}
+```
+
+------------------------------------------------------------------------
+
+# Section 5: From Models to Action
+
+## Translating Statistical Insights to Practice
+
+Models are only valuable if they inform decisions. Let's extract actionable insights from our analyses:
+
+```{r actionable-insights}
+cat("=== ACTIONABLE INSIGHTS FROM MODELS ===\n")
+cat("========================================\n\n")
+
+# Finding 1: High-leverage intervention points
+cat("FINDING 1: HIGH-LEVERAGE SITES\n")
+cat("-------------------------------\n")
+
+# Identify sites with high influence but low engagement
+leverage_sites <- analysis_df %>%
+  filter(type == "spoke") %>%
+  mutate(
+    influence = betweenness / max(betweenness),
+    engagement = participation / 100,
+    leverage = influence - engagement
+  ) %>%
+  arrange(desc(leverage)) %>%
+  head(5)
+
+cat("Sites with high network influence but low participation:\n")
+leverage_sites %>%
+  select(actor, betweenness, participation, leverage) %>%
+  kable()
+
+cat("\nRECOMMENDATION:\n")
+cat("Target these sites for engagement interventions.\n")
+cat("Small improvements here have network-wide effects.\n")
+```
+
+### Network Growth Strategies
+
+```{r growth-strategies}
+cat("\n\nFINDING 2: NETWORK GROWTH OPPORTUNITIES\n")
+cat("-----------------------------------------\n")
+
+# Analyze current network composition
+edge_composition <- edges %>%
+  group_by(relationship_type) %>%
+  summarise(
+    count = n(),
+    avg_weight = mean(weight),
+    pct = n() / nrow(edges) * 100
+  )
+
+cat("Current network composition:\n")
+kable(edge_composition)
+
+# Based on formation model, identify missing connections
+cat("\nGROWTH STRATEGY:\n")
+
+# Calculate potential peer connections
+potential_peer_edges <- dyad_df %>%
+  filter(
+    sender_type == "spoke",
+    receiver_type == "spoke",
+    same_state == 1,
+    edge_exists == 0
+  ) %>%
+  nrow()
+
+cat("• Potential same-state peer connections: ", potential_peer_edges, "\n", sep = "")
+cat("• Current peer learning edges: ", 
+    sum(edges$relationship_type == "peer_learning"), "\n", sep = "")
+cat("• Opportunity: Add ", min(10, potential_peer_edges), 
+    " strategic peer connections\n", sep = "")
+
+cat("\nRECOMMENDATION:\n")
+cat("1. Foster within-state peer connections\n")
+cat("2. Create specialty-based working groups\n")
+cat("3. Implement buddy system for new sites\n")
+```
+
+### Intervention Simulation
+
+```{r intervention-simulation}
+cat("\n\nFINDING 3: INTERVENTION IMPACT\n")
+cat("--------------------------------\n")
+
+# Simulate adding strategic connections
+cat("SIMULATION: Connect isolated sites to brokers\n\n")
+
+# Identify isolated and broker sites
+isolated_sites <- analysis_df %>%
+  filter(type == "spoke", total_degree <= 2) %>%
+  pull(actor)
+
+broker_sites <- analysis_df %>%
+  filter(type == "spoke", betweenness > median(betweenness)) %>%
+  head(3) %>%
+  pull(actor)
+
+cat("Isolated sites: ", length(isolated_sites), "\n", sep = "")
+cat("Broker sites: ", paste(broker_sites, collapse = ", "), "\n", sep = "")
+
+# Calculate expected impact
+if(length(isolated_sites) > 0 & length(broker_sites) > 0) {
+  new_connections <- length(isolated_sites) * length(broker_sites)
+  density_increase <- new_connections / (n_actors * (n_actors - 1))
+  
+  cat("\nEXPECTED IMPACT:\n")
+  cat("• New connections: ", new_connections, "\n", sep = "")
+  cat("• Density increase: ", round(density_increase * 100, 2), "%\n", sep = "")
+  cat("• Reduced average path length\n")
+  cat("• Increased redundancy (resilience)\n")
+}
+```
+
+## Executive Dashboard
+
+```{r executive-dashboard}
+cat("\n\n=== EXECUTIVE SUMMARY ===\n")
+cat("==========================\n")
+
+# Key metrics and recommendations
+summary_table <- data.frame(
+  Metric = c(
+    "Network Efficiency",
+    "Vulnerability", 
+    "Peer Learning",
+    "Geographic Coverage",
+    "Engagement Variation"
+  ),
+  Current_State = c(
+    "High (short paths)",
+    "High (hub dependent)",
+    "Low (30% of edges)",
+    "Uneven (by state)",
+    "High (CV = 0.25)"
+  ),
+  Target_State = c(
+    "Maintain",
+    "Reduce to medium",
+    "Increase to 50%",
+    "Balance across states",
+    "Reduce variation"
+  ),
+  Action_Required = c(
+    "Monitor only",
+    "Add redundant connections",
+    "Foster peer relationships",
+    "Regional coordination",
+    "Support weak sites"
+  )
+)
+
+kable(summary_table, caption = "Network Health Dashboard")
+
+cat("\n\nTOP 3 PRIORITIES:\n")
+priorities <- c(
+  "Connect isolated sites to broker spokes (Quick win)",
+  "Develop regional sub-hubs (Medium-term resilience)",
+  "Create peer learning communities (Long-term sustainability)"
+)
+
+for(i in 1:length(priorities)) {
+  cat(i, ". ", priorities[i], "\n", sep = "")
+}
+```
+
+------------------------------------------------------------------------
+
+# Summary and Conclusions
+
+## What We've Learned About Network Inference
+
+```{r key-takeaways}
+cat("=== KEY TAKEAWAYS ===\n")
+cat("=====================\n\n")
+
+lessons <- list(
+  "Statistical Challenges" = 
+    "Network data violates independence assumptions of standard models",
+  
+  "Model Choice Matters" = 
+    "Different models answer different questions - choose wisely",
+  
+  "Formation vs Outcomes" = 
+    "Understanding why ties form is different from understanding their effects",
+  
+  "Dependencies are Features" = 
+    "Network effects aren't nuisances - they're what we want to study",
+  
+  "Actionable Insights" = 
+    "Good network analysis translates structure into strategy"
+)
+
+for(lesson in names(lessons)) {
+  cat("• ", lesson, ":\n  ", lessons[[lesson]], "\n\n", sep = "")
+}
+```
+
+## Comparing Approaches: A Final Summary
+
+```{r comparison-summary}
+comparison_final <- data.frame(
+  Approach = c("OLS with Network Measures", 
+               "Network Formation Models",
+               "AMEN/Advanced Models"),
+  Best_For = c("Quick insights, familiar methods",
+               "Understanding tie formation",
+               "Rigorous network inference"),
+  Limitations = c("Biased SEs, no causation",
+                 "Treats dyads as independent",
+                 "Complex, computationally intensive"),
+  When_to_Use = c("Exploratory analysis, medical journals",
+                  "Testing homophily, selection effects",
+                  "Publication in network journals")
+)
+
+kable(comparison_final, caption = "Model Comparison Summary")
+```
+
+## Final Thoughts
+
+```{r closing}
+cat("\n\n=== CLOSING THOUGHTS ===\n")
+cat("========================\n\n")
+
+cat("Network analysis is both art and science. The models we've explored\n")
+cat("provide rigorous ways to test hypotheses, but interpreting results\n")
+cat("requires understanding the substantive context.\n\n")
+
+cat("For Project ECHO networks specifically:\n")
+cat("• The hub-and-spoke model is efficient but fragile\n")
+cat("• Peer connections are underutilized opportunities\n")
+cat("• Geographic proximity matters for collaboration\n")
+cat("• Network position predicts but doesn't determine engagement\n\n")
+
+cat("Remember: Networks are not just data structures - they represent\n")
+cat("real relationships between real people working toward better\n")
+cat("healthcare delivery. Use these tools thoughtfully to strengthen\n")
+cat("those connections and improve patient outcomes.\n")
+
+# Save final results
+save(model2, formation_model, analysis_df, dyad_df,
+     file = "part3_inference_results.RData")
+
+cat("\nResults saved for future analysis.\n")
+cat("Workshop complete - thank you for participating!\n")
+```
+
+------------------------------------------------------------------------
+
+# Appendix: Quick Reference Guide
+
+## Model Selection Flowchart
+
+```         
+Research Question?
+├── Individual Outcomes → OLS with network measures
+│   └── Check: Network autocorrelation?
+│       ├── Yes → Interpret with caution
+│       └── No → Standard interpretation
+│
+├── Tie Formation → Network formation models
+│   └── Check: Dyadic dependencies?
+│       ├── Yes → AMEN or ERGM
+│       └── No → Logistic regression
+│
+└── Network Evolution → Longitudinal models
+    └── Check: Panel data available?
+        ├── Yes → STERGM or dynamic AMEN
+        └── No → Cross-sectional comparison
+```
+
+## Key Functions Reference
+
+| Task                 | netify Function    | Base R Alternative   |
+|----------------------|--------------------|----------------------|
+| Create network       | `netify()`         | Use igraph           |
+| Get adjacency        | `get_adjacency()`  | `as.matrix()`        |
+| Calculate centrality | `node_degree()`    | Manual calculation   |
+| Network regression   | `net_regression()` | `lm()` with measures |
+| Visualize            | `plot()`           | `plot.igraph()`      |
+
+------------------------------------------------------------------------
+
+*End of Part 3: Models for Network Inference*
+
+*This notebook is part of the ECHO Learning Network Analysis Series*

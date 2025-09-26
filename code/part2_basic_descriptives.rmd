@@ -1,0 +1,749 @@
+---
+title: "Part 2: Basic Network Descriptives"
+subtitle: "Network Analysis for Project ECHO - Interactive Learning Module"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: united
+    code_folding: show
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, 
+                      fig.width = 10, fig.height = 6)
+```
+
+# Introduction: Understanding Network Structure in Healthcare Learning
+
+## Why Network Analysis for Project ECHO?
+
+How do we understand if knowledge-sharing networks are working effectively? How do we identify which partners might need more support, or which ones could serve as peer mentors?
+
+Network analysis provides the mathematical and visual tools to answer these questions.
+
+### The Power of Network Thinking
+
+Consider two rural clinics with identical resources and staff qualifications. Traditional analysis might predict similar outcomes. But what if one clinic is well-connected to peers and experts while the other is isolated? Network analysis reveals these hidden structural advantages that can make the difference between thriving and struggling.
+
+### Learning Objectives
+
+By the end of this interactive notebook, you will be able to:
+
+1.  **Transform** relational data from edge lists to network formats
+2.  **Visualize** network structure to identify patterns and anomalies
+3.  **Calculate** centrality measures to find key actors
+4.  **Interpret** network-level statistics for system insights
+5.  **Apply** these techniques to real healthcare networks
+
+### Setting Up Your Environment
+
+First, let's load the necessary libraries and prepare our workspace:
+
+```{r libraries}
+# ============================================
+# NETWORK ANALYSIS TOOLKIT
+# ============================================
+
+# Core network analysis packages
+library(netify)      # Modern network analysis framework
+library(igraph)      # Additional network functionality
+library(tidyverse)   # Data manipulation and visualization
+
+# Set seed for reproducible results
+set.seed(42)
+
+# Check package versions
+cat("Package versions:\n")
+cat("- netify:", as.character(packageVersion("netify")), "\n")
+cat("- igraph:", as.character(packageVersion("igraph")), "\n")
+cat("- tidyverse:", as.character(packageVersion("tidyverse")), "\n\n")
+
+# Set default plot theme
+theme_set(theme_minimal())
+```
+
+------------------------------------------------------------------------
+
+# Part 1: Data Transformation - From Lists to Networks
+
+## Understanding Network Data Structures
+
+Network data is fundamentally different from traditional tabular data. Instead of rows representing independent observations, we have **actors** (nodes) and **relationships** (edges) that form an interconnected system.
+
+### The Two Fundamental Representations
+
+There are two primary ways to represent network data, each with distinct advantages:
+
+1.  **Edge List Format**: A table where each row represents one relationship
+    -   Intuitive and human-readable
+    -   Efficient for sparse networks
+    -   Easy to collect from surveys or observations
+2.  **Adjacency Matrix Format**: A square matrix where cells indicate connections
+    -   Computationally efficient for algorithms
+    -   Shows both presence and absence of ties
+    -   Required input for many network functions
+
+Let's load our ECHO network data and explore both formats:
+
+```{r load-data}
+# ---------------------------------------------
+# LOADING THE ECHO NETWORK DATA
+# ---------------------------------------------
+
+# Load edge list and node attributes
+edges <- read.csv("data/hub_and_spoke/echo_edges.csv", stringsAsFactors = FALSE)
+nodes <- read.csv("data/hub_and_spoke/echo_nodes.csv", stringsAsFactors = FALSE)
+
+# Examine the edge list structure
+cat("EDGE LIST STRUCTURE:\n")
+cat("===================\n")
+head(edges, 3) %>% knitr::kable()
+
+cat("\n\nWhat do these columns mean?\n")
+cat("- 'from': The initiating actor (who reaches out)\n")
+cat("- 'to': The receiving actor (who is contacted)\n")
+cat("- 'weight': Strength of the relationship (1-20 scale)\n")
+cat("- 'relationship_type': Nature of the connection\n")
+cat("- 'interaction_frequency': How often they interact\n")
+```
+
+### Understanding Our Actors
+
+Before diving into network structure, let's understand who's in our network:
+
+```{r examine-nodes}
+# Examine node attributes
+cat("\nNODE ATTRIBUTES:\n")
+cat("===============\n")
+head(nodes, 3) %>% knitr::kable()
+
+# Summarize network composition
+cat("\n\nNETWORK COMPOSITION:\n")
+cat("====================\n")
+
+node_summary <- nodes %>%
+  group_by(node_type) %>%
+  summarise(
+    count = n(),
+    avg_participation = mean(participation_rate),
+    states = n_distinct(state)
+  )
+
+node_summary %>% knitr::kable()
+
+cat("\nKey observations:\n")
+cat("- One central hub (academic medical center)\n")
+cat("- Multiple spoke sites (community clinics)\n")
+cat("- Expert consultants providing specialized knowledge\n")
+cat("- Geographic distribution across multiple states\n")
+```
+
+## Creating the Adjacency Matrix
+
+Now let's transform our edge list into an adjacency matrix - the computational workhorse of network analysis:
+
+```{r transform-to-matrix}
+# ---------------------------------------------
+# EDGE LIST TO ADJACENCY MATRIX TRANSFORMATION
+# ---------------------------------------------
+
+# Extract unique actors
+actors <- unique(c(edges$from, edges$to))
+n <- length(actors)
+
+cat("Network dimensions:\n")
+cat("- Total actors:", n, "\n")
+cat("- Total relationships:", nrow(edges), "\n")
+cat("- Matrix size:", n, "x", n, "=", n*n, "cells\n\n")
+
+# Create empty adjacency matrix
+A <- matrix(0, n, n, dimnames = list(actors, actors))
+
+# Populate with edge weights
+for(i in 1:nrow(edges)) {
+  A[edges$from[i], edges$to[i]] <- edges$weight[i]
+}
+
+# Display a portion of the matrix
+cat("Adjacency matrix (first 5x5 subset):\n")
+A[1:5, 1:5] %>% 
+  as.data.frame() %>%
+  knitr::kable()
+
+# Calculate sparsity
+sparsity <- sum(A == 0) / (n * n)
+cat("\nMatrix sparsity:", sprintf("%.1f%%", sparsity * 100), "\n")
+cat("This means", sprintf("%.1f%%", sparsity * 100), 
+    "of possible connections don't exist.\n")
+cat("This is typical for real-world networks!\n")
+```
+
+## Creating a netify Network Object
+
+The `netify` package provides a modern, tidyverse-compatible approach to network analysis. Let's create our network object:
+
+```{r create-netify}
+# Create netify object with our adjacency matrix
+echo_net <- netify(
+  A,
+  actor_time_invariant = TRUE,  # Actors don't change over time
+  edge_time_invariant = TRUE    # Edges are stable
+)
+
+# Display network summary
+print(echo_net)
+
+cat("\nWhat netify tells us:\n")
+cat("- Network type: directed (connections have direction)\n")
+cat("- Observation period: single time point (cross-sectional)\n")
+cat("- Ready for analysis with netify functions\n")
+```
+
+------------------------------------------------------------------------
+
+# Part 2: Network Visualization - Seeing the Structure
+
+## The Art and Science of Network Visualization
+
+A good network visualization can reveal patterns that would take hours to discover in data tables. But creating effective visualizations requires thoughtful choices about layout, color, and visual encoding.
+
+### Converting to igraph for Advanced Visualization
+
+While `netify` is excellent for analysis, `igraph` offers more visualization options. Let's create an igraph object and enhance it with our node attributes:
+
+```{r create-igraph}
+# ---------------------------------------------
+# NETWORK VISUALIZATION SETUP
+# ---------------------------------------------
+
+# Convert to igraph
+g <- graph_from_adjacency_matrix(A, mode = "directed", weighted = TRUE)
+
+# Add node attributes (ensuring correct order)
+node_order <- match(actors, nodes$node_id)
+V(g)$type <- nodes$node_type[node_order]
+V(g)$state <- nodes$state[node_order]
+V(g)$participation <- nodes$participation_rate[node_order]
+
+# Create visual encodings
+colors <- c(hub = "red", spoke = "lightblue", expert = "gold")
+V(g)$color <- colors[V(g)$type]
+
+# Size nodes by participation rate
+V(g)$size <- V(g)$participation / 5 + 5
+
+cat("Visual encoding scheme:\n")
+cat("- Color: Node type (red=hub, blue=spoke, gold=expert)\n")
+cat("- Size: Participation rate (larger = more active)\n")
+cat("- Edge width: Interaction strength\n")
+```
+
+### Creating the Network Visualization
+
+```{r visualize-network, fig.height=8}
+# Set layout algorithm for reproducible positioning
+set.seed(42)
+layout <- layout_with_kk(g)  # Kamada-Kawai force-directed layout
+
+# Create the visualization
+plot(g, 
+     layout = layout,
+     edge.arrow.size = 0.3,
+     edge.width = E(g)$weight/8,
+     vertex.label.cex = 0.7,
+     main = "ECHO Learning Network Structure",
+     sub = "Node size = participation rate, Edge width = interaction strength")
+
+# Add legend
+legend("bottomright", 
+       legend = c("Hub", "Spoke", "Expert"),
+       pch = 21, 
+       pt.bg = c("red", "lightblue", "gold"),
+       pt.cex = 2,
+       bty = "n",
+       title = "Node Type")
+```
+
+### Interpreting the Visualization
+
+```{r interpret-viz}
+cat("\nWHAT THE VISUALIZATION REVEALS:\n")
+cat("================================\n\n")
+
+cat("1. HUB-AND-SPOKE ARCHITECTURE:\n")
+cat("   - Central red node connects to most blue spokes\n")
+cat("   - Classic telementoring structure clearly visible\n")
+cat("   - Information flows primarily through the hub\n\n")
+
+cat("2. PEER LEARNING PATTERNS:\n")
+cat("   - Some blue nodes connect directly to each other\n")
+cat("   - These peer connections may indicate:\n")
+cat("     * Geographic proximity\n")
+cat("     * Shared specialties\n")
+cat("     * Informal knowledge exchange\n\n")
+
+cat("3. EXPERT POSITIONING:\n")
+cat("   - Gold nodes (experts) connect primarily to hub\n")
+cat("   - Expertise flows through hub to spokes\n")
+cat("   - No direct expert-to-spoke connections\n\n")
+
+cat("4. PARTICIPATION PATTERNS:\n")
+cat("   - Node sizes vary significantly\n")
+cat("   - Some spokes are highly active (large nodes)\n")
+cat("   - Others may need engagement support (small nodes)\n")
+```
+
+------------------------------------------------------------------------
+
+# Part 3: Centrality Analysis - Finding Key Players
+
+## Multiple Dimensions of Importance
+
+In a network, "importance" isn't one-dimensional. Different actors play different roles:
+
+-   **Connectors**: Have many relationships (high degree)
+-   **Brokers**: Bridge different groups (high betweenness)
+-   **Influencers**: Connected to other important actors (high eigenvector)
+
+Let's calculate these different centrality measures:
+
+```{r calculate-centrality}
+# ---------------------------------------------
+# CENTRALITY MEASURES CALCULATION
+# ---------------------------------------------
+
+# Calculate various centrality measures
+cat("Calculating centrality measures...\n\n")
+
+# Degree centrality (number of connections)
+degree_in <- degree(g, mode = "in")
+degree_out <- degree(g, mode = "out")
+degree_total <- degree(g, mode = "all")
+
+# Betweenness centrality (brokerage position)
+between <- betweenness(g, directed = TRUE)
+
+# Eigenvector centrality (connection to well-connected others)
+eigen <- eigen_centrality(g, directed = TRUE)$vector
+
+# Compile results into a comprehensive dataframe
+centrality_df <- data.frame(
+  actor = actors,
+  type = V(g)$type,
+  in_degree = degree_in,
+  out_degree = degree_out,
+  total_degree = degree_total,
+  betweenness = round(between, 2),
+  eigenvector = round(eigen, 3),
+  stringsAsFactors = FALSE
+)
+
+cat("Centrality measures calculated successfully!\n")
+```
+
+### Identifying Network Brokers
+
+Brokers control information flow. Let's find them:
+
+```{r find-brokers}
+# Identify top brokers by betweenness centrality
+cat("TOP 5 BROKERS (by betweenness centrality):\n")
+cat("==========================================\n\n")
+
+top_brokers <- centrality_df %>%
+  arrange(desc(betweenness)) %>%
+  head(5)
+
+top_brokers %>%
+  select(actor, type, betweenness, total_degree) %>%
+  knitr::kable()
+
+cat("\nInterpretation:\n")
+cat("- High betweenness indicates control over information flow\n")
+cat("- These actors bridge otherwise disconnected groups\n")
+cat("- Removing them would increase network fragmentation\n")
+cat("- Consider them for leadership or coordination roles\n")
+```
+
+### Comparing Centrality by Node Type
+
+How do different types of actors compare in terms of centrality?
+
+```{r centrality-by-type}
+# Analyze centrality patterns by node type
+cat("\nAVERAGE CENTRALITY BY NODE TYPE:\n")
+cat("=================================\n\n")
+
+type_comparison <- centrality_df %>%
+  group_by(type) %>%
+  summarise(
+    n = n(),
+    avg_degree = round(mean(total_degree), 2),
+    avg_betweenness = round(mean(betweenness), 2),
+    avg_eigenvector = round(mean(eigenvector), 3),
+    max_degree = max(total_degree),
+    max_betweenness = max(betweenness)
+  )
+
+type_comparison %>% knitr::kable()
+
+cat("\nKey insights:\n")
+cat("- Hub dominates all centrality measures (as expected)\n")
+cat("- Spokes vary widely in connectivity\n")
+cat("- Experts have specialized roles (moderate centrality)\n")
+cat("- Some spokes may serve as secondary hubs\n")
+```
+
+------------------------------------------------------------------------
+
+# Part 4: Network-Level Measures - System Properties
+
+## Beyond Individual Actors
+
+While centrality tells us about individuals, network-level measures reveal system properties that affect how the entire network functions:
+
+```{r network-measures}
+# ---------------------------------------------
+# NETWORK-LEVEL STATISTICS
+# ---------------------------------------------
+
+cat("=== NETWORK-LEVEL STATISTICS ===\n")
+cat("================================\n\n")
+
+# Calculate key network metrics
+# Density: proportion of possible edges that exist
+density <- edge_density(g)
+cat(sprintf("Network Density: %.3f", density))
+cat(" (", round(density * 100, 1), "% of possible connections exist)\n", sep = "")
+cat("   → Interpretation: Low density indicates sparse network\n")
+cat("   → Typical for hub-and-spoke architectures\n\n")
+
+# Centralization: how hierarchical is the network?
+centralization <- centr_degree(g, mode = "all")$centralization
+cat(sprintf("Degree Centralization: %.3f\n", centralization))
+cat("   → 1 = perfect star (all connections through one node)\n")
+cat("   → 0 = everyone equally connected\n")
+cat("   → High value confirms hub-dominated structure\n\n")
+
+# Clustering: do friends of friends know each other?
+clustering <- transitivity(g, type = "global")
+cat(sprintf("Clustering Coefficient: %.3f\n", clustering))
+cat("   → Probability that two of my contacts know each other\n")
+cat("   → Low value suggests limited peer-to-peer learning\n\n")
+
+# Average path length: degrees of separation
+avg_path <- mean_distance(g, directed = TRUE)
+cat(sprintf("Average Path Length: %.2f\n", avg_path))
+cat("   → Average 'degrees of separation' in network\n")
+cat("   → Short paths enable rapid information diffusion\n\n")
+
+# Network diameter: maximum separation
+diameter <- diameter(g, directed = TRUE)
+cat(sprintf("Network Diameter: %d\n", diameter))
+cat("   → Maximum degrees of separation\n")
+cat("   → Longest 'shortest path' between any two nodes\n")
+```
+
+### Understanding Network Vulnerability
+
+```{r network-vulnerability}
+cat("\nNETWORK RESILIENCE ANALYSIS:\n")
+cat("============================\n\n")
+
+# What happens if the hub fails?
+hub_name <- names(which(V(g)$type == "hub"))
+g_no_hub <- delete_vertices(g, hub_name)
+
+# Check connectivity without hub
+components_with_hub <- components(g)$no
+components_without_hub <- components(g_no_hub)$no
+
+cat("Components with hub:", components_with_hub, "\n")
+cat("Components without hub:", components_without_hub, "\n\n")
+
+cat("VULNERABILITY ASSESSMENT:\n")
+cat("- Removing hub would fragment network into", 
+    components_without_hub, "disconnected groups\n")
+cat("- This represents a critical vulnerability\n")
+cat("- Recommendation: Develop regional sub-hubs for resilience\n")
+```
+
+------------------------------------------------------------------------
+
+# Part 5: Visualizing Centrality Distributions
+
+## Understanding Variation in Network Position
+
+Let's create visualizations to understand how centrality is distributed across the network:
+
+```{r centrality-distributions, fig.height=10}
+# ---------------------------------------------
+# VISUALIZATION OF CENTRALITY DISTRIBUTIONS
+# ---------------------------------------------
+
+# Create a 2x2 panel plot
+par(mfrow = c(2, 2))
+
+# 1. Degree distribution
+hist(degree_total, 
+     main = "Degree Distribution",
+     xlab = "Number of Connections",
+     col = "lightblue",
+     breaks = 10)
+abline(v = mean(degree_total), col = "red", lwd = 2, lty = 2)
+text(mean(degree_total), par("usr")[4]*0.9, 
+     paste("Mean =", round(mean(degree_total), 1)), 
+     pos = 4, col = "red")
+
+# 2. Betweenness distribution  
+hist(between,
+     main = "Betweenness Distribution", 
+     xlab = "Betweenness Centrality",
+     col = "lightgreen",
+     breaks = 10)
+abline(v = mean(between), col = "red", lwd = 2, lty = 2)
+text(mean(between), par("usr")[4]*0.9, 
+     paste("Mean =", round(mean(between), 1)), 
+     pos = 4, col = "red")
+
+# 3. Centrality by node type
+boxplot(total_degree ~ type, 
+        data = centrality_df,
+        main = "Degree by Node Type",
+        col = c("gold", "red", "lightblue"),
+        ylab = "Total Degree",
+        names = c("Expert", "Hub", "Spoke"))
+
+# 4. Participation vs Centrality
+plot(V(g)$participation, degree_total,
+     main = "Participation vs Connections",
+     xlab = "Participation Rate (%)",
+     ylab = "Total Degree",
+     pch = 19,
+     col = V(g)$color)
+abline(lm(degree_total ~ V(g)$participation), col = "gray", lty = 2)
+
+# Calculate correlation
+cor_value <- cor(V(g)$participation, degree_total, use = "complete.obs")
+text(par("usr")[2]*0.7, par("usr")[4]*0.9, 
+     paste("r =", round(cor_value, 2)), 
+     pos = 1)
+
+par(mfrow = c(1, 1))  # Reset plot layout
+```
+
+### Interpreting the Distributions
+
+```{r interpret-distributions}
+cat("\nDISTRIBUTION INSIGHTS:\n")
+cat("======================\n\n")
+
+# Analyze degree distribution
+degree_skew <- moments::skewness(degree_total)
+cat("1. DEGREE DISTRIBUTION:\n")
+cat("   - Skewness:", round(degree_skew, 2), "\n")
+if(degree_skew > 1) {
+  cat("   - Highly skewed: Few actors have many connections\n")
+  cat("   - Most actors have few connections\n")
+  cat("   - Typical of scale-free networks\n")
+} else {
+  cat("   - Relatively even distribution\n")
+}
+
+# Analyze participation-centrality relationship
+cat("\n2. PARTICIPATION-CENTRALITY RELATIONSHIP:\n")
+cat("   - Correlation:", round(cor_value, 2), "\n")
+if(abs(cor_value) > 0.5) {
+  cat("   - Strong relationship detected\n")
+  cat("   - Well-connected sites tend to be more engaged\n")
+  cat("   - Consider: Does connection drive participation or vice versa?\n")
+} else {
+  cat("   - Weak to moderate relationship\n")
+  cat("   - Other factors may be more important for engagement\n")
+}
+
+# Identify outliers
+outliers <- centrality_df %>%
+  filter(total_degree > mean(total_degree) + 2*sd(total_degree))
+
+if(nrow(outliers) > 0) {
+  cat("\n3. NETWORK OUTLIERS (unusually high connectivity):\n")
+  outliers %>%
+    select(actor, type, total_degree) %>%
+    knitr::kable() %>%
+    print()
+}
+```
+
+------------------------------------------------------------------------
+
+# Part 6: Key Insights and Recommendations
+
+## Strategic Insights for Project ECHO
+
+Based on our comprehensive network analysis, here are actionable insights:
+
+```{r key-insights}
+# ---------------------------------------------
+# KEY INSIGHTS FOR PRESENTATION
+# ---------------------------------------------
+
+cat("\n=== KEY INSIGHTS ===\n")
+cat("===================\n\n")
+
+insights <- list(
+  "Network Architecture" = "Clear hub-and-spoke structure with limited peer connections",
+  "Central Dependency" = "High reliance on hub creates vulnerability",
+  "Peer Learning" = "Some organic peer connections exist but could be strengthened",
+  "Expert Integration" = "Experts feed knowledge through hub, not directly to spokes",
+  "Geographic Patterns" = "Evidence of regional clustering in peer connections",
+  "Engagement Variation" = "Wide range in participation rates across spokes"
+)
+
+for(i in seq_along(insights)) {
+  cat(sprintf("%d. %s:\n   %s\n\n", 
+              i, 
+              names(insights)[i], 
+              insights[[i]]))
+}
+```
+
+## Practical Recommendations
+
+```{r recommendations}
+cat("\n=== RECOMMENDATIONS FOR NETWORK IMPROVEMENT ===\n")
+cat("==============================================\n\n")
+
+# Identify specific intervention opportunities
+# 1. Find isolated spokes
+isolated_spokes <- centrality_df %>%
+  filter(type == "spoke", total_degree <= 2) %>%
+  select(actor, total_degree)
+
+if(nrow(isolated_spokes) > 0) {
+  cat("1. SUPPORT ISOLATED SPOKES:\n")
+  cat("   These sites need additional connections:\n")
+  isolated_spokes %>% knitr::kable() %>% print()
+  cat("   → Action: Pair with peer mentors or create buddy systems\n\n")
+}
+
+# 2. Identify potential peer leaders
+peer_leaders <- centrality_df %>%
+  filter(type == "spoke", betweenness > median(between)) %>%
+  arrange(desc(betweenness)) %>%
+  head(3) %>%
+  select(actor, betweenness, total_degree)
+
+cat("2. LEVERAGE NATURAL BROKERS:\n")
+cat("   These spokes already bridge different groups:\n")
+peer_leaders %>% knitr::kable() %>% print()
+cat("   → Action: Formalize their role as peer coordinators\n\n")
+
+# 3. Geographic opportunities
+cat("3. STRENGTHEN REGIONAL CONNECTIONS:\n")
+cat("   → Create state-based special interest groups\n")
+cat("   → Facilitate regional peer learning sessions\n")
+cat("   → Consider regional sub-hubs for resilience\n\n")
+
+# 4. Reduce vulnerability
+cat("4. BUILD NETWORK RESILIENCE:\n")
+cat("   → Current centralization:", sprintf("%.1f%%", centralization * 100), "\n")
+cat("   → Target: Reduce to below 50% through peer connections\n")
+cat("   → Develop backup communication channels\n")
+```
+
+## Network Report Card
+
+```{r report-card}
+cat("\n=== NETWORK REPORT CARD ===\n")
+cat("===========================\n\n")
+
+# Create comprehensive assessment
+grades <- data.frame(
+  Dimension = c(
+    "Connectivity",
+    "Resilience",
+    "Efficiency",
+    "Peer Learning",
+    "Expert Integration",
+    "Geographic Coverage"
+  ),
+  Grade = c("B+", "C", "A", "C+", "B", "B"),
+  Assessment = c(
+    "Good hub-spoke connectivity, some isolated sites",
+    "High vulnerability due to hub dependence",
+    "Short paths enable rapid information flow",
+    "Limited peer connections (opportunity for growth)",
+    "Experts well-integrated through hub",
+    "Present across states but uneven distribution"
+  ),
+  Recommendation = c(
+    "Connect isolated spokes to peer mentors",
+    "Develop regional sub-hubs for redundancy",
+    "Maintain current efficient structure",
+    "Foster spoke-to-spoke relationships",
+    "Consider direct expert-spoke connections for specialized topics",
+    "Balance network growth across regions"
+  )
+)
+
+grades %>% knitr::kable()
+
+cat("\n\nOVERALL ASSESSMENT:\n")
+cat("The ECHO network successfully delivers expertise from hub to spokes\n")
+cat("but shows opportunities for improvement in peer learning and resilience.\n")
+cat("Strategic development of peer connections and regional structures\n")
+cat("would enhance both learning outcomes and network sustainability.\n")
+```
+
+------------------------------------------------------------------------
+
+# Part 7: Saving Results for Further Analysis
+
+## Preparing Data for Statistical Modeling
+
+Let's save our network measures for use in Part 3, where we'll incorporate them into statistical models:
+
+```{r save-results}
+
+# Save complete workspace
+save(centrality_df, g, A, edges, nodes, echo_net,
+     file = "part2_complete_analysis.RData")
+cat("✓ Complete workspace saved\n\n")
+
+cat("Files ready for Part 3: Statistical Network Models\n")
+```
+
+------------------------------------------------------------------------
+
+# Summary and Next Steps
+
+## What We've Accomplished
+
+In this comprehensive network analysis, we've:
+
+✓ **Transformed** edge list data into network format\
+✓ **Visualized** the hub-and-spoke architecture\
+✓ **Calculated** multiple centrality measures\
+✓ **Analyzed** network-level properties\
+✓ **Identified** vulnerable points and opportunities\
+✓ **Generated** specific, actionable recommendations
+
+## Key Takeaways
+
+1.  **Structure Matters**: The hub-and-spoke architecture efficiently distributes expertise but creates vulnerability
+
+2.  **Multiple Perspectives**: Different centrality measures reveal different aspects of importance
+
+3.  **System Properties**: Network-level measures like density and centralization characterize the entire system
+
+4.  **Actionable Insights**: Network analysis identifies specific interventions to improve the learning network
+
+## Preview of Part 3
+
+In the next session, we'll explore: - Using network measures as predictors in regression models - Testing hypotheses about network formation - AMEN models for network inference - Distinguishing selection from influence effects
+
+------------------------------------------------------------------------
