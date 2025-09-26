@@ -49,7 +49,7 @@ install.packages(c("broom", "car", "gridExtra"))
 
 3. Open RStudio and set working directory to the repository root
 
-4. Open the R Markdown notebooks in the `notebooks/` folder
+4. Open the R Markdown notebooks in the `code/` folder
 
 #### Option 2: Google Colab Setup
 
@@ -71,7 +71,7 @@ install.packages(c("netify", "igraph", "tidyverse"))
 - The paradigm shift from individual to relational thinking
 
 #### **Part 2: Describing Networks** 
-*Format: Interactive R notebook (`2_basic_descriptives.Rmd`)*
+*Format: Interactive R notebook (`part2_basic_descriptives.Rmd`)*
 
 - **Data Transformation**: Converting edge lists to adjacency matrices
 - **Visualization**: Creating meaningful network plots with `igraph`
@@ -92,7 +92,7 @@ plot()            # Visualize network
 ```
 
 #### **Part 3: Statistical Models for Networks**
-*Format: Interactive R notebook (`3_models_for_net_inference.Rmd`)*
+*Format: Interactive R notebook (`part3_models_for_net_inference.Rmd`)*
 
 - **The Independence Problem**: Why standard regression fails for networks
 - **Network Autocorrelation**: Testing and implications
