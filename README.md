@@ -21,11 +21,11 @@ By completing this workshop, you will be able to:
 - **Statistics**: Understanding of linear regression and basic statistical concepts
 - **No network experience required**: We build from fundamentals
 
-```
-
 ### 💻 Setup Instructions
 
 #### Option 1: Local RStudio Setup
+
+```
 
 1. Clone this repository:
 ```bash
