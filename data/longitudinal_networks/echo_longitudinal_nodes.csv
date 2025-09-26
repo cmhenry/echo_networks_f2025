@@ -1,0 +1,49 @@
+node_id,node_name,node_type,join_quarter,leave_quarter,state,rurality_score,staff_fte,oud_experience,tech_readiness,growth_trajectory
+hub_01,UNM ECHO Addiction Hub,hub,2019_Q1,,NM,3,25.0,9,5,stable
+spoke_01,Rio Grande Family Health,spoke_fqhc,2019_Q1,,NM,7,8.5,3,3,growing
+spoke_02,San Juan Regional Med,spoke_hospital,2019_Q1,,NM,5,45.0,4,4,stable
+spoke_03,Guadalupe County Clinic,spoke_clinic,2019_Q1,,NM,8,3.5,2,2,growing
+spoke_04,Las Cruces Community Health,spoke_fqhc,2019_Q1,,NM,4,12.0,3,3,stable
+spoke_05,Taos Health Systems,spoke_clinic,2019_Q2,,NM,6,6.0,2,3,growing
+spoke_06,Silver City Medical,spoke_clinic,2019_Q3,,NM,7,4.5,1,2,stable
+spoke_07,Roswell Primary Care,spoke_clinic,2019_Q3,,NM,5,7.0,2,3,growing
+spoke_08,Farmington Health Partners,spoke_fqhc,2019_Q4,,NM,6,10.0,3,4,stable
+spoke_09,Gallup Indian Medical,spoke_hospital,2020_Q1,,NM,8,35.0,5,3,growing
+spoke_10,Alamogordo Family Practice,spoke_clinic,2020_Q1,,NM,6,5.0,2,3,stable
+spoke_11,Carlsbad Medical Center,spoke_hospital,2020_Q2,,NM,5,22.0,3,4,growing
+spoke_12,Socorro General Hospital,spoke_hospital,2020_Q2,2022_Q3,NM,7,18.0,2,2,declining
+spoke_13,El Paso Border Health,spoke_fqhc,2020_Q3,,TX,3,15.0,4,4,stable
+spoke_14,Marfa Rural Clinic,spoke_clinic,2020_Q3,,TX,9,2.5,1,2,growing
+spoke_15,Durango Integrated Health,spoke_fqhc,2020_Q4,,CO,6,11.0,3,4,stable
+spoke_16,Cortez Family Medicine,spoke_clinic,2020_Q4,,CO,8,4.0,2,3,variable
+expert_01,Dr. Sarah Martinez,expert_clinical,2021_Q1,,NM,3,1.0,10,5,stable
+expert_02,Dr. Michael Chen,expert_behavioral,2021_Q1,,NM,3,1.0,9,5,stable
+spoke_17,Flagstaff Medical Center,spoke_hospital,2021_Q1,,AZ,4,38.0,4,4,growing
+spoke_18,Tuba City Regional,spoke_hospital,2021_Q2,,AZ,9,28.0,3,3,stable
+spoke_19,Moab Community Health,spoke_clinic,2021_Q2,,UT,8,3.0,1,2,growing
+spoke_20,St. George Clinic,spoke_clinic,2021_Q2,,UT,5,8.0,2,3,stable
+expert_03,Julia Rodriguez JD,expert_policy,2021_Q3,,NM,3,1.0,8,5,stable
+spoke_21,Tucson South Health,spoke_fqhc,2021_Q3,,AZ,4,14.0,4,4,stable
+spoke_22,Yuma Regional Medical,spoke_hospital,2021_Q3,,AZ,5,32.0,3,4,growing
+spoke_23,Pueblo Community Health,spoke_fqhc,2021_Q4,,CO,5,9.0,3,3,stable
+spoke_24,Trinidad Health Center,spoke_clinic,2021_Q4,2023_Q2,CO,7,3.5,2,2,declining
+spoke_25,Las Vegas Medical Center,spoke_hospital,2022_Q1,,NV,4,25.0,3,4,growing
+spoke_26,Ely Rural Health,spoke_clinic,2022_Q1,,NV,9,2.0,1,2,variable
+spoke_27,Cedar City Family Practice,spoke_clinic,2022_Q1,,UT,6,5.5,2,3,stable
+expert_04,Dr. Patricia Wong,expert_clinical,2022_Q2,,CO,2,1.0,10,5,stable
+spoke_28,Grand Junction Health,spoke_hospital,2022_Q2,,CO,4,40.0,5,5,growing
+spoke_29,Raton Community Clinic,spoke_clinic,2022_Q2,,NM,8,3.0,1,2,stable
+spoke_30,Truth or Consequences Med,spoke_clinic,2022_Q3,,NM,7,4.0,2,2,variable
+spoke_31,Deming Health Services,spoke_fqhc,2022_Q3,,NM,6,7.5,3,3,growing
+spoke_32,Alpine Texas Rural Health,spoke_clinic,2022_Q3,,TX,9,2.5,1,2,stable
+spoke_33,Presidio Border Clinic,spoke_clinic,2022_Q4,,TX,9,3.0,2,2,growing
+spoke_34,Kingman Regional Medical,spoke_hospital,2022_Q4,,AZ,5,20.0,3,4,stable
+expert_05,Dr. Robert Thompson,expert_behavioral,2023_Q1,,TX,2,1.0,9,5,stable
+spoke_35,Page Health Center,spoke_clinic,2023_Q1,,AZ,8,4.5,2,3,growing
+spoke_36,Blanding Community Health,spoke_clinic,2023_Q1,,UT,9,2.5,1,2,stable
+spoke_37,Alamosa Valley Health,spoke_fqhc,2023_Q2,,CO,7,8.0,3,3,growing
+spoke_38,Winslow Indian Health,spoke_hospital,2023_Q2,,AZ,8,18.0,4,3,stable
+spoke_39,Tonopah Medical Center,spoke_clinic,2023_Q3,,NV,9,1.5,1,2,variable
+spoke_40,Mesquite Community Health,spoke_clinic,2023_Q3,,NV,6,5.0,2,3,growing
+spoke_41,Vernal Regional Health,spoke_hospital,2023_Q4,,UT,6,15.0,3,4,stable
+spoke_42,Hobbs Medical Center,spoke_hospital,2023_Q4,,NM,5,22.0,4,4,growing
