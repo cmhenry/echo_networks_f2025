@@ -20,8 +20,6 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE,
 
 ## The Independence Assumption Problem
 
-Imagine trying to understand a conversation by analyzing each person's words in isolation, ignoring who they're talking to and what others are saying. That's essentially what we do when we apply standard statistical methods to network data - we miss the fundamental reality that actors are embedded in webs of relationships that shape their behaviors and outcomes.
-
 In traditional statistics, we assume observations are independent. But in networks, this assumption is fundamentally violated. If the ECHO hub adopts a new practice, connected spokes are more likely to adopt it too - not because of their individual characteristics, but because of their network connection. This interdependence isn't a nuisance to be corrected; it's the very phenomenon we want to study.
 
 ### The Challenge of Network Inference
@@ -64,7 +62,7 @@ load("../data/part2_complete_analysis.RData")
 cat("DATA LOADED:\n")
 cat("============\n")
 cat("Network object:", class(echo_net), "\n")
-cat("Nodes in network:", nrow(actor_data), "\n")
+cat("Nodes in network:", nrow(nodes), "\n")
 cat("Edges in network:", nrow(edges), "\n")
 cat("Centrality measures:", ncol(centrality_df), "variables\n")
 ```
