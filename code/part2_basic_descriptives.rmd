@@ -88,10 +88,23 @@ There are two primary ways to represent network data, each with distinct advanta
 
 Let's load our ECHO network data and explore both formats:
 
+#### A note on direction
+
+Our ECHO data captures **directed** relationships — each connection has a sender and a receiver. This distinction matters enormously in a knowledge-sharing context:
+
+-   **Outgoing ties** ("from"): represent reaching out — e.g., who does a clinic contact when they need guidance?
+
+-   **Incoming ties** ("to") represent being sought out – e.g., who do others turn to for expertise?
+
+One interpretation: A clinic that reaches out to many peers is an active learner; a clinic that many peers reach out to is an informal leader. These are very different roles, and directionality lets us distinguish them. Later, when we calculate centrality, we'll be able to separate "in-degree" (prestige — others come to you) from "out-degree" (activity — you go to others). If we collapsed direction, we'd lose that distinction entirely.
+
 ```{r load-data}
 # ---------------------------------------------
 # LOADING THE ECHO NETWORK DATA
 # ---------------------------------------------
+
+# Set working directory
+setwd("~/Projects/echo_networks_f2025")
 
 # Load edge list and node attributes
 edges <- read.csv("data/hub_and_spoke/echo_edges.csv", stringsAsFactors = FALSE)
@@ -143,7 +156,15 @@ cat("- Geographic distribution across multiple states\n")
 
 ## Creating the Adjacency Matrix
 
-Now let's transform our edge list into an adjacency matrix - the computational workhorse of network analysis:
+Now let's transform our edge list into an adjacency matrix - the computational workhorse of network analysis.
+
+We create a square table where every actor in the network gets both a row and a column. The cell at row *i*, column *j* answers the question: Does actor *i* have a relationship with actor *j* and, if so, how strong is it?
+
+-   A **nonzero value** means a relationship exists, and the number reflects the weight (in our case, interaction strength on a 1-20 scale).
+
+-   A **zero** means we did not observe a relationship. But keep in mind that this an absence of a recorded connection, not proof that the two actors never interacted. Surveys and administrative data tend to undercount informal ties. And we may be able to infer informal ties from network structure later!
+
+Because the network is directed, this matrix is **asymmetric**: the cell at `[Clinic_A, Clinic_B]` can differ from `[Clinic_B, Clinic_A]`. Clinic A might report reaching out to Clinic B without Clinic B reporting the reverse.
 
 ```{r transform-to-matrix}
 # ---------------------------------------------
@@ -168,8 +189,8 @@ for(i in 1:nrow(edges)) {
 }
 
 # Display a portion of the matrix
-cat("Adjacency matrix (first 5x5 subset):\n")
-A[1:5, 1:5] %>% 
+cat("Adjacency matrix (first 10x10 subset):\n")
+A[1:10, 1:10] %>% 
   as.data.frame() %>%
   knitr::kable()
 
@@ -180,6 +201,12 @@ cat("This means", sprintf("%.1f%%", sparsity * 100),
     "of possible connections don't exist.\n")
 cat("This is typical for real-world networks!\n")
 ```
+
+#### Interpreting sparsity
+
+The matrix we just created is overwhelmingly filled with zeros — and that's entirely expected. Real-world networks are almost always sparse, because actors have limited time, attention, and opportunity to form ties.
+
+In the ECHO context, this makes intuitive sense: a rural clinic in New Mexico has no particular reason to be in regular contact with a clinic in Maine. Their learning connections are shaped by geography, specialty, shared ECHO sessions, and the hub that coordinates them. Sparsity isn't a sign of a failing network, but a structural feature of *any* network where connections are costly or time-limited. What matters isn't how many zeros there are, but *where the nonzero values are* and whether they form patterns that support effective knowledge flow.
 
 ## Creating a netify Network Object
 
@@ -233,7 +260,7 @@ colors <- c(hub = "red", spoke = "lightblue", expert = "gold")
 V(g)$color <- colors[V(g)$type]
 
 # Size nodes by participation rate
-V(g)$size <- V(g)$participation / 5 + 5
+V(g)$size <- V(g)$participation / 5
 
 cat("Visual encoding scheme:\n")
 cat("- Color: Node type (red=hub, blue=spoke, gold=expert)\n")
@@ -307,6 +334,18 @@ In a network, "importance" isn't one-dimensional. Different actors play differen
 -   **Connectors**: Have many relationships (high degree)
 -   **Brokers**: Bridge different groups (high betweenness)
 -   **Influencers**: Connected to other important actors (high eigenvector)
+
+#### What each measure tells us (in ECHO terms)
+
+Before we run the code, it's worth building intuition for what these measures capture and why each tells a different story:
+
+-   **Degree centrality** is the simplest: it counts connections. In ECHO terms, this means a clinic with a high degree is an active participant — they interact with many other sites. We can split this into in-degree and out-degree, as we talked about before.
+
+-   **Betweenness centrality** captures a subtler measure of centrality: brokerage. An actor with high betweenness sits on the shortest paths connecting other actors. In practical terms, if two clinics that don't directly interact need to share information, it probably flows through the high-betweenness actor. This is powerful — these brokers control information flow — but also risky, because if they disengage, the path breaks.
+
+-   **Eigenvector centrality** goes a step further than degree by asking not just *how many* connections you have, but *who* you're connected to. Being connected to three well-connected actors gives you a higher eigenvector score than being connected to three isolated ones. Think of it as prestige by association: in ECHO, a spoke site connected to the hub and to several active peers has more structural influence than a site with the same number of ties to peripheral, disengaged sites.
+
+These three measures often correlate, but they don't have to — and the places where they diverge are often the most interesting. A spoke site with modest degree but high betweenness, for example, might be the sole bridge between two regional clusters.
 
 Let's calculate these different centrality measures:
 
@@ -403,7 +442,23 @@ cat("- Some spokes may serve as secondary hubs\n")
 
 ## Beyond Individual Actors
 
-While centrality tells us about individuals, network-level measures reveal system properties that affect how the entire network functions:
+While centrality tells us about individuals, network-level measures reveal system properties that affect how the entire network functions.
+
+#### A different level of analysis
+
+Up to this point, every measure we've calculated has described an *individual actor* — how connected is this clinic, how central is that expert. Now we shift perspective entirely. Network-level measures describe the *system as a whole*. They answer a fundamentally different kind of question: not "who matters?" but "how does this network function?"
+
+This matters because two networks can have identical sets of centrality scores for their individual actors yet behave very differently at the system level. Consider:
+
+-   **Density** asks: out of all the connections that *could* exist, how many actually do? A dense network means information has many pathways to travel; a sparse one means it depends on a few critical routes.
+
+-   **Centralization** asks: is connectivity concentrated in a few actors, or spread evenly? A highly centralized network is efficient but fragile; a decentralized one is resilient but may be slower.
+
+-   **Clustering** asks: do your contacts know each other? High clustering means tight local groups (good for trust and deep collaboration); low clustering means people bridge across separate circles.
+
+-   **Path length** asks: how many steps does it take for information to get from one side of the network to the other? Short paths mean fast diffusion; long paths mean delays and distortion.
+
+Each of these captures a different structural property, and together they give us a diagnostic profile of the network as a functioning system.
 
 ```{r network-measures}
 # ---------------------------------------------
@@ -477,7 +532,21 @@ cat("- Recommendation: Develop regional sub-hubs for resilience\n")
 
 ## Understanding Variation in Network Position
 
-Let's create visualizations to understand how centrality is distributed across the network:
+Let's create visualizations to understand how centrality is distributed across the network.
+
+#### Why distributions matter
+
+It might be tempting to summarize our centrality results with averages: "the average spoke has 4.2 connections." But averages can be deeply misleading in networks, because network measures are almost never normally distributed.
+
+Consider a scenario: the average degree in our network is 5. That sounds healthy. But what if the hub has 25 connections and most spokes have 2? The average is technically accurate but describes no one. The distribution reveals how much inequality exists in the network's structure.
+
+This is why we're about to look at histograms and boxplots rather than summary tables:
+
+-   A **right-skewed degree distribution** (a few actors with many ties, most with few) is the signature of a hub-dominated network.
+
+-   A **bimodal distribution** might suggest two distinct classes of participants — perhaps an active core and a disengaged periphery.
+
+-   The **relationship between participation and centrality** tells us whether engagement and connectivity reinforce each other or operate independently.
 
 ```{r centrality-distributions, fig.height=10}
 # ---------------------------------------------
@@ -582,7 +651,7 @@ if(nrow(outliers) > 0) {
 
 # Part 6: Key Insights and Recommendations
 
-## Strategic Insights for Project ECHO
+## Strategic Insights from Toy Data
 
 Based on our comprehensive network analysis, here are actionable insights:
 
@@ -693,7 +762,7 @@ grades <- data.frame(
 grades %>% knitr::kable()
 
 cat("\n\nOVERALL ASSESSMENT:\n")
-cat("The ECHO network successfully delivers expertise from hub to spokes\n")
+cat("This fake ECHO network successfully delivers expertise from hub to spokes\n")
 cat("but shows opportunities for improvement in peer learning and resilience.\n")
 cat("Strategic development of peer connections and regional structures\n")
 cat("would enhance both learning outcomes and network sustainability.\n")
