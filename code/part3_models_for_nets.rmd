@@ -603,16 +603,16 @@ cat("\nPREPARING DATA FOR AMEN:\n")
 cat("========================\n")
 
 # Create adjacency matrix for netify
-Y <- adj_matrix
+Y <- A
 
 # Prepare covariates
 # Node-level covariates
-node_covariates <- actor_data %>%
+node_covariates <- nodes %>%
   select(years_in_echo, staff_size, participation_rate) %>%
   mutate(across(everything(), scale))  # Standardize
 
 # Dyadic covariates (same state)
-same_state_matrix <- outer(actor_data$state, actor_data$state, "==") * 1
+same_state_matrix <- outer(nodes$state, nodes$state, "==") * 1
 diag(same_state_matrix) <- 0  # No self-loops
 
 cat("Data prepared:\n")
